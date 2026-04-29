@@ -608,16 +608,13 @@ function BadgeCard({ badge, highlight, compact = false }) {
   const status = getBadgeStatus(badge);
   const progressText = badge.isPercent ? `${badge.progress}% / ${status.nextThreshold}%` : `${badge.progress} / ${status.nextThreshold}`;
   const tierStyles = {
-    Bronze: { medal: "linear-gradient(145deg, #f3e0d2 0%, #c9976b 40%, #8a5a3c 65%, #e8c2a3 100%)" },
-    Silver: { medal: "linear-gradient(145deg, #e2e6ea 0%, #a8b0b9 38%, #707985 66%, #c9d0d7 100%)" },
-    Gold: { medal: "linear-gradient(145deg, #fff4d6 0%, #e0b84f 40%, #a97a12 65%, #ffe08a 100%)" },
-    Platinum: { medal: "linear-gradient(145deg, #fbfdff 0%, #e3edf5 28%, #b8c6d2 52%, #f3f8fc 76%, #ccd9e3 100%)" },
+    Bronze: { medal: "linear-gradient(145deg, #f0c7a4 0%, #b8734a 34%, #6f3f28 66%, #d69a72 100%)" },
+    Silver: { medal: "linear-gradient(145deg, #e9ecef 0%, #a6adb5 34%, #66717c 66%, #c0c7ce 100%)" },
+    Gold: { medal: "linear-gradient(145deg, #fff1c2 0%, #d6a23a 32%, #7b520d 67%, #e7bd58 100%)" },
+    Platinum: { medal: "linear-gradient(145deg, #fbfdff 0%, #dce9f3 28%, #aebdcc 52%, #f6fbff 74%, #c7d8e6 100%)" },
     Starter: { medal: "#d1d5db" }
   };
   const tier = tierStyles[status.currentTier] || tierStyles.Starter;
-  const { scrollYProgress } = useScroll();
-  const specularX = useTransform(scrollYProgress, [0, 1], ["-6px", "6px"]);
-  const specularY = useTransform(scrollYProgress, [0, 1], ["-4px", "4px"]);
 
   return (
     <motion.div
@@ -631,64 +628,44 @@ function BadgeCard({ badge, highlight, compact = false }) {
       
 
       <motion.div
-        animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }} 
+        animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }}
         transition={{ duration: 0.65 }}
-        className={`absolute z-10 flex items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/75 ${compact ? "right-3 top-3 h-8 w-8 text-xs" : "right-5 top-5 h-11 w-11 text-lg"}`}
+        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/75 ${compact ? "right-3 top-3 h-8 w-8 text-xs" : "right-5 top-5 h-11 w-11 text-lg"}`}
         style={{ background: tier.medal }}
       >
-        ★
-        
-        {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/45 blur-sm" />}
-        {/* Metallic treatment for all tiers */}
         {status.currentTier !== "Starter" && (
           <>
-            <motion.div
+            <div
               className="pointer-events-none absolute inset-0 rounded-full"
               style={{
-                x: specularX,
-                y: specularY,
-                background: "linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.2) 36%, rgba(120,130,140,0.18) 62%, rgba(255,255,255,0.55) 100%)",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -1px 2px rgba(80,90,100,0.18)"
+                background: "radial-gradient(circle at 32% 24%, rgba(255,255,255,0.56) 0%, rgba(255,255,255,0.18) 28%, transparent 44%), linear-gradient(145deg, rgba(255,255,255,0.28), rgba(0,0,0,0.16))",
+                boxShadow: "inset 0 1px 2px rgba(255,255,255,0.72), inset 0 -2px 4px rgba(0,0,0,0.2)"
               }}
             />
             <div
-              className="pointer-events-none absolute inset-[1px] rounded-full opacity-[0.12] mix-blend-overlay"
+              className="pointer-events-none absolute inset-[1px] rounded-full opacity-[0.08] mix-blend-overlay"
               style={{
-                backgroundImage: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.9) 0 1px, transparent 1.2px), radial-gradient(circle at 72% 64%, rgba(0,0,0,0.4) 0 0.7px, transparent 1px)",
+                backgroundImage: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.85) 0 1px, transparent 1.2px), radial-gradient(circle at 72% 64%, rgba(0,0,0,0.35) 0 0.7px, transparent 1px)",
                 backgroundSize: "7px 7px, 9px 9px"
               }}
             />
-            <div className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/80" />
+            <div className="pointer-events-none absolute inset-0 rounded-full shadow-inner ring-1 ring-white/80" />
           </>
         )}
 
-        {/* Platinum keeps animated sheen only */}
         {status.currentTier === "Platinum" && (
-          <>
-            <div
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                background: "linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.2) 36%, rgba(120,130,140,0.18) 62%, rgba(255,255,255,0.55) 100%)",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -1px 2px rgba(80,90,100,0.18), 0 0 20px rgba(190,200,210,0.48)"
-              }}
-            />
-            <div
-              className="pointer-events-none absolute inset-[1px] rounded-full opacity-[0.16] mix-blend-overlay"
-              style={{
-                backgroundImage: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.95) 0 1px, transparent 1.2px), radial-gradient(circle at 72% 64%, rgba(0,0,0,0.55) 0 0.7px, transparent 1px)",
-                backgroundSize: "7px 7px, 9px 9px"
-              }}
-            />
-            <div className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/90" />
-            <motion.div
-              className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
-              style={{ background: "linear-gradient(120deg, transparent 34%, rgba(255,255,255,0.72) 50%, transparent 66%)" }}
-              initial={{ x: "-130%", opacity: 0 }}
-              animate={{ x: ["-130%", "130%"], opacity: [0, 0.75, 0] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.75 }}
-            />
-          </>
+          <motion.div
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+            style={{ background: "linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.5) 50%, transparent 62%)" }}
+            initial={{ x: "-120%", opacity: 0 }}
+            animate={{ x: ["-120%", "120%"], opacity: [0, 0.55, 0] }}
+            transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.75 }}
+          />
         )}
+
+        {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/35 blur-sm" />}
+
+        <span className="relative z-10 flex h-full w-full items-center justify-center">★</span>
       </motion.div>
 
       <div className="relative z-[1] flex h-full flex-col text-center">
