@@ -394,7 +394,7 @@ function Phone({ children }) {
   }, []);
 
   return (
-    <div className="mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:h-[760px] sm:max-w-[430px] sm:rounded-[2.35rem] sm:border sm:border-white/70 sm:pt-0 sm:pb-0 sm:shadow-[0_32px_90px_rgba(0,0,0,0.22)] sm:ring-1 sm:ring-black/5">
+    <div className="mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-[env(safe-area-inset-top)] pb-0 sm:h-[760px] sm:max-w-[430px] sm:rounded-[2.35rem] sm:border sm:border-white/70 sm:pt-0 sm:shadow-[0_32px_90px_rgba(0,0,0,0.22)] sm:ring-1 sm:ring-black/5">
       {children}
     </div>
   );
