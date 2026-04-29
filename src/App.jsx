@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 
 const db = {
@@ -376,7 +376,29 @@ function ToggleSwitch({ checked, onClick, label }) {
 
 const Card = ({ children, className = "" }) => <div className={`rounded-[28px] border border-white/70 bg-white/82 shadow-[0_8px_28px_rgba(0,0,0,0.06)] backdrop-blur-xl ${className}`}>{children}</div>;
 const Header = ({ title, right }) => <div className="flex items-center justify-between px-5 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em] text-neutral-950">{title}</h1>{right || <span />}</div>;
-const Phone = ({ children }) => <div className="mx-auto min-h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2.35rem] border border-white/70 bg-[#f8f5ef] shadow-[0_32px_90px_rgba(0,0,0,0.22)] ring-1 ring-black/5">{children}</div>;
+function Phone({ children }) {
+  useEffect(() => {
+    const ensureMeta = (name, content) => {
+      let tag = document.querySelector(`meta[name="${name}"]`);
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.setAttribute("name", name);
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute("content", content);
+    };
+
+    ensureMeta("viewport", "width=device-width, initial-scale=1, viewport-fit=cover");
+    ensureMeta("apple-mobile-web-app-capable", "yes");
+    ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
+  }, []);
+
+  return (
+    <div className="mx-auto min-h-[100dvh] w-full overflow-hidden bg-[#f8f5ef] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:min-h-[760px] sm:max-w-[430px] sm:rounded-[2.35rem] sm:border sm:border-white/70 sm:pt-0 sm:pb-0 sm:shadow-[0_32px_90px_rgba(0,0,0,0.22)] sm:ring-1 sm:ring-black/5">
+      {children}
+    </div>
+  );
+}
 
 function ProductImage({ src, alt, className }) {
   const [error, setError] = useState(false);
@@ -1086,7 +1108,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const searchedProducts = products.filter((product) => !db.scans.some((scan) => scan.productId === product.id));
   const hideNav = viewUser || showResult || detail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
 
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-4 py-8 font-sans text-neutral-950 antialiased">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex min-h-[760px] flex-col"><div className="flex-1 overflow-hidden"><AnimatePresence mode="wait">
+  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex min-h-[100dvh] flex-col sm:min-h-[760px]"><div className="flex-1 overflow-hidden"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} favorites`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} />
