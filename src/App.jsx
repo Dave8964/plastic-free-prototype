@@ -394,7 +394,7 @@ function Phone({ children }) {
   }, []);
 
   return (
-    <div className="mx-auto min-h-[100dvh] w-full overflow-hidden bg-[#f8f5ef] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:min-h-[760px] sm:max-w-[430px] sm:rounded-[2.35rem] sm:border sm:border-white/70 sm:pt-0 sm:pb-0 sm:shadow-[0_32px_90px_rgba(0,0,0,0.22)] sm:ring-1 sm:ring-black/5">
+    <div className="mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:h-[760px] sm:max-w-[430px] sm:rounded-[2.35rem] sm:border sm:border-white/70 sm:pt-0 sm:pb-0 sm:shadow-[0_32px_90px_rgba(0,0,0,0.22)] sm:ring-1 sm:ring-black/5">
       {children}
     </div>
   );
@@ -428,7 +428,7 @@ function ProductRow({ product, onClick }) {
 }
 
 function BottomNav({ tab, setTab }) {
-  return <div className="border-t border-white/70 bg-white/72 px-2 py-2 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <button type="button" key={key} onClick={() => setTab(key)} className={`flex flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></button>; })}</div></div>;
+  return <div className="border-t border-white/70 bg-white/72 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <button type="button" key={key} onClick={() => setTab(key)} className={`flex flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></button>; })}</div></div>;
 }
 
 function ScanScreen({ products, openResult }) {
@@ -1125,7 +1125,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const searchedProducts = products.filter((product) => !db.scans.some((scan) => scan.productId === product.id));
   const hideNav = viewUser || showResult || detail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
 
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex min-h-[100dvh] flex-col sm:min-h-[760px]"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} favorites`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} />
@@ -1185,7 +1185,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 )}
 </AnimatePresence>
 </div>
-{!hideNav && <BottomNav tab={tab} setTab={setTabSafe} />}
+{!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
 </div>
 }
