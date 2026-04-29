@@ -1125,7 +1125,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const searchedProducts = products.filter((product) => !db.scans.some((scan) => scan.productId === product.id));
   const hideNav = viewUser || showResult || detail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
 
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex min-h-[100dvh] flex-col sm:min-h-[760px]"><div className="flex-1 overflow-hidden"><AnimatePresence mode="wait">
+  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex min-h-[100dvh] flex-col sm:min-h-[760px]"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} favorites`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} />
@@ -1184,6 +1184,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 )}
 </AnimatePresence>
+</div>
 {!hideNav && <BottomNav tab={tab} setTab={setTabSafe} />}
 </div>
 </div>
