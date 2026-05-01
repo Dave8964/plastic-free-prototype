@@ -3,6 +3,11 @@ import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion"
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
+const APP_USER_ID = "user_me";
+const LOCAL_SUBMISSIONS_KEY = "plasticfree.submissions.v1";
+const LOCAL_SCANS_KEY = "plasticfree.scans.v1";
+const LOCAL_FAVORITES_KEY = "plasticfree.favorites.v1";
+
 const plasticListBrandAliases = {
   "Boudin Sourdough": "Boudin",
   "Tartine Sourdough": "Tartine",
@@ -1121,6 +1126,92 @@ async function fetchOpenFoodFactsProduct(barcode) {
   };
 }
 
+function readLocalJson(key, fallback) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local fallback is best-effort only.
+  }
+}
+
+function readPhotoFile(file) {
+  if (!file) return Promise.resolve(null);
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, type: file.type, size: file.size, dataUrl: reader.result });
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function fetchBackendSubmissions() {
+  const response = await fetch(`/api/submissions?userId=${APP_USER_ID}`);
+  if (!response.ok) throw new Error("Backend submissions unavailable.");
+  const data = await response.json();
+  return data.submissions || [];
+}
+
+async function saveBackendSubmission(submission) {
+  const response = await fetch("/api/submissions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: APP_USER_ID, ...submission }),
+  });
+  if (!response.ok) throw new Error("Backend submission save failed.");
+  const data = await response.json();
+  return data.submission;
+}
+
+async function fetchBackendScans() {
+  const response = await fetch(`/api/scans?userId=${APP_USER_ID}`);
+  if (!response.ok) throw new Error("Backend scan history unavailable.");
+  const data = await response.json();
+  return data.scans || [];
+}
+
+async function saveBackendScan(scan) {
+  const response = await fetch("/api/scans", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: APP_USER_ID, ...scan }),
+  });
+  if (!response.ok) throw new Error("Backend scan save failed.");
+  return response.json();
+}
+
+async function fetchBackendFavorites() {
+  const response = await fetch(`/api/favorites?userId=${APP_USER_ID}`);
+  if (!response.ok) throw new Error("Backend favorites unavailable.");
+  const data = await response.json();
+  return data.favorites || [];
+}
+
+async function saveBackendFavorite(productId, favorited) {
+  const response = await fetch("/api/favorites", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: APP_USER_ID, productId, favorited }),
+  });
+  if (!response.ok) throw new Error("Backend favorite save failed.");
+  const data = await response.json();
+  return data.favorites || [];
+}
+
+function getCategoryIdFromLabel(label) {
+  const match = db.categories.find((category) => category.name === label);
+  return match?.id || "cat_food_drink";
+}
+
 function createPendingProductFromDraft(draft = {}, photos = {}) {
   const idSeed = normalizeBarcode(draft.barcode) || `${Date.now()}`;
   const id = `pending_${idSeed}`;
@@ -1128,8 +1219,8 @@ function createPendingProductFromDraft(draft = {}, photos = {}) {
     id,
     name: draft.name?.trim() || "Pending product",
     brand: draft.brand?.trim() || "Brand pending",
-    categoryId: "cat_food_drink",
-    imageUrl: draft.imageUrl || "",
+    categoryId: draft.categoryId || getCategoryIdFromLabel(draft.category) || "cat_food_drink",
+    imageUrl: draft.imageUrl || photos.front?.dataUrl || "",
     country: "CA",
     confidence: "Low",
     verification: "unverified",
@@ -1434,11 +1525,12 @@ function SearchScreen({ products, openResult, openAddProduct }) {
 }
 
 function PhotoUploadSlot({ label, value, onChange }) {
+  const fileName = value?.name || value || "";
   return (
     <label className="block rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-left">
       <span className="block text-sm font-semibold text-neutral-950">{label}</span>
-      <span className="mt-1 block truncate text-xs text-neutral-500">{value || "Tap to choose photo"}</span>
-      <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => onChange(event.target.files?.[0]?.name || "")} />
+      <span className="mt-1 block truncate text-xs text-neutral-500">{fileName || "Tap to choose photo"}</span>
+      <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={async (event) => onChange(await readPhotoFile(event.target.files?.[0]))} />
     </label>
   );
 }
@@ -1449,10 +1541,11 @@ function AddProductScreen({ close, draft = {}, onSubmit }) {
   const [name, setName] = useState(draft.name || "");
   const [brand, setBrand] = useState(draft.brand || "");
   const [barcode, setBarcode] = useState(draft.barcode || "");
+  const [category, setCategory] = useState(draft.packagingScan ? "Other" : "Food and drink");
   const [submitted, setSubmitted] = useState(false);
   const setPhoto = (key, value) => setPhotos((current) => ({ ...current, [key]: value }));
   const canSubmit = name.trim() || barcode.trim();
-  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl">{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></>}</button><div className="mt-5 flex gap-3"><Button variant="light">Photo review</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload front, back label, barcode, and plastic/recycling symbols so the database can verify the product before it becomes public.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Product name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. UltraShine Dishwasher Detergent" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Brand</span><input value={brand} onChange={(event) => setBrand(event.target.value)} placeholder="e.g. Kirkland Signature" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select defaultValue={draft.packagingScan ? "Other" : "Food and drink"} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Barcode number</span><input value={barcode} onChange={(event) => setBarcode(event.target.value)} inputMode="numeric" placeholder="Scan or enter manually" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><div><span className="mb-2 block text-sm font-medium text-neutral-700">Required photos</span><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label="Front" value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Back label" value={photos.back} onChange={(value) => setPhoto("back", value)} /><PhotoUploadSlot label="Barcode" value={photos.barcode} onChange={(value) => setPhoto("barcode", value)} /><PhotoUploadSlot label="Plastic symbols" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label>{submitted && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Submitted and added to your scan history.</div>}<Button onClick={() => { if (!canSubmit) return; setSubmitted(true); onSubmit?.({ ...draft, name, brand, barcode }, photos); }} className={`w-full ${!canSubmit ? "opacity-50" : ""}`}>Submit for review</Button></div></div></div>;
+  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl">{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></>}</button><div className="mt-5 flex gap-3"><Button variant="light">Photo review</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload front, back label, barcode, and plastic/recycling symbols so the database can verify the product before it becomes public.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Product name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. UltraShine Dishwasher Detergent" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Brand</span><input value={brand} onChange={(event) => setBrand(event.target.value)} placeholder="e.g. Kirkland Signature" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Barcode number</span><input value={barcode} onChange={(event) => setBarcode(event.target.value)} inputMode="numeric" placeholder="Scan or enter manually" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><div><span className="mb-2 block text-sm font-medium text-neutral-700">Required photos</span><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label="Front" value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Back label" value={photos.back} onChange={(value) => setPhoto("back", value)} /><PhotoUploadSlot label="Barcode" value={photos.barcode} onChange={(value) => setPhoto("barcode", value)} /><PhotoUploadSlot label="Plastic symbols" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label>{submitted && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Submitted and added to your scan history.</div>}<Button onClick={() => { if (!canSubmit) return; setSubmitted(true); onSubmit?.({ ...draft, name, brand, barcode, category }, photos); }} className={`w-full ${!canSubmit ? "opacity-50" : ""}`}>Submit for review</Button></div></div></div>;
 }
 
 function HistoryScreen({ products, scans = db.scans, openResult, openScanned, openSearched }) {
@@ -2299,12 +2392,68 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [locale, setLocale] = useState(getDefaultSpellingLocale);
   const localeCopy = getLocaleCopy(locale);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadPersistentData() {
+      try {
+        const submissions = await fetchBackendSubmissions();
+        if (!active) return;
+        setSubmittedProducts(submissions.map((submission) => submission.product).filter(Boolean));
+        setSubmittedParts(submissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
+        writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
+      } catch {
+        const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+        if (!active) return;
+        setSubmittedProducts(localSubmissions.map((submission) => submission.product).filter(Boolean));
+        setSubmittedParts(localSubmissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
+      }
+
+      try {
+        const backendScans = await fetchBackendScans();
+        if (!active) return;
+        const staticScanIds = new Set(db.scans.map((scan) => scan.id));
+        setScanHistory([...backendScans.filter((scan) => !staticScanIds.has(scan.id)), ...db.scans]);
+        writeLocalJson(LOCAL_SCANS_KEY, backendScans);
+      } catch {
+        const localScans = readLocalJson(LOCAL_SCANS_KEY, []);
+        if (!active) return;
+        const staticScanIds = new Set(db.scans.map((scan) => scan.id));
+        setScanHistory([...localScans.filter((scan) => !staticScanIds.has(scan.id)), ...db.scans]);
+      }
+
+      try {
+        const backendFavorites = await fetchBackendFavorites();
+        if (!active) return;
+        setFavoriteIds(backendFavorites);
+        writeLocalJson(LOCAL_FAVORITES_KEY, backendFavorites);
+      } catch {
+        const localFavorites = readLocalJson(LOCAL_FAVORITES_KEY, null);
+        if (!active || !localFavorites) return;
+        setFavoriteIds(localFavorites);
+      }
+    }
+
+    loadPersistentData();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const updateProfile = (updates) => {
     setProfile((current) => ({ ...current, ...updates }));
   };
 
   const toggleFavorite = (productId) => {
-    setFavoriteIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId]);
+    const favorited = !favoriteIds.includes(productId);
+    const nextFavoriteIds = favorited ? [...favoriteIds, productId] : favoriteIds.filter((id) => id !== productId);
+    setFavoriteIds(nextFavoriteIds);
+    saveBackendFavorite(productId, favorited)
+      .then((backendFavorites) => {
+        setFavoriteIds(backendFavorites);
+        writeLocalJson(LOCAL_FAVORITES_KEY, backendFavorites);
+      })
+      .catch(() => writeLocalJson(LOCAL_FAVORITES_KEY, nextFavoriteIds));
   };
 
   const resetOverlays = () => {
@@ -2340,14 +2489,24 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const recordScan = (productId) => {
-    setScanHistory((current) => current.some((scan) => scan.productId === productId && scan.userId === "user_me") ? current : [{ id: `scan_${productId}_${Date.now()}`, userId: "user_me", productId }, ...current]);
+    const scan = { id: `scan_${APP_USER_ID}_${productId}`, userId: APP_USER_ID, productId };
+    setScanHistory((current) => current.some((item) => item.productId === productId && item.userId === APP_USER_ID) ? current : [scan, ...current]);
+    saveBackendScan(scan).catch(() => {
+      const localScans = readLocalJson(LOCAL_SCANS_KEY, []);
+      if (!localScans.some((item) => item.id === scan.id)) writeLocalJson(LOCAL_SCANS_KEY, [scan, ...localScans]);
+    });
   };
 
   const submitPendingProduct = (draft, photos) => {
     const { product, parts } = createPendingProductFromDraft(draft, photos);
+    const submission = { id: product.id, product, parts, photos };
     setSubmittedProducts((current) => current.some((item) => item.id === product.id) ? current.map((item) => item.id === product.id ? product : item) : [product, ...current]);
     setSubmittedParts((current) => [...current.filter((part) => part.productId !== product.id), ...parts]);
     recordScan(product.id);
+    saveBackendSubmission(submission).catch(() => {
+      const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+      writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => item.id !== product.id)]);
+    });
     setShowAddProduct(false);
     setAddProductDraft({});
     setTimeout(() => {
