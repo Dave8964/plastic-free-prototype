@@ -2071,6 +2071,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (showResult) setShowResult(false);
   };
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
+  const productPageTransition = { ...pageTransition, duration: 0.4 };
+  const returnToTabTransition = { ...pageTransition, duration: 0.31 };
   const scrollIncomingScreen = (screen) => {
     if (screen === "product" && shouldRestoreProductScrollRef.current) {
       contentScrollRef.current?.scrollTo({ top: productScrollTopRef.current, left: 0, behavior: "auto" });
@@ -2135,11 +2137,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
     <DetailScreen product={detail.product} part={detail.part} close={closePartDetail} />
   </motion.div>
 ) : showResult ? (
-  <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
+  <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
     <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} />
   </motion.div>
 ) : (
-  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
+  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
     {tab === "scan" && <ScanScreen products={products} openResult={handleScan} />}
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => setShowAddProduct(true)} />}
     {tab === "history" && <HistoryScreen products={products} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
