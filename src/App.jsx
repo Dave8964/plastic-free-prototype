@@ -1122,7 +1122,7 @@ function EyeMiniIcon() {
 }
 
 function SocialProductPreview({ product, onClick }) {
-  return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></button>;
+  return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></button>;
 }
 
 function getProductSwapType(product) {
@@ -1175,7 +1175,7 @@ function getTrendingProducts(products) {
 }
 
 function CompactScoreCircle({ product, className = "" }) {
-  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${className}`} style={getScoreBadgeStyle(product.theme)}>{product.score}</div>;
+  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner ${className}`} style={getScoreBadgeStyle(product.theme)}>{product.score}</div>;
 }
 
 function SocialHighlightHeader({ title, copy }) {
@@ -1183,7 +1183,7 @@ function SocialHighlightHeader({ title, copy }) {
 }
 
 function TrendingProductChip({ product, onClick }) {
-  return <button type="button" onClick={onClick} className="flex w-64 shrink-0 items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition active:scale-[0.98]"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="line-clamp-2 min-h-9 text-sm font-semibold leading-tight text-neutral-950">{product.name}</div><div className="mt-1 line-clamp-2 text-xs font-medium leading-tight text-neutral-500">{product.brand}</div></div><CompactScoreCircle product={product} /></button>;
+  return <button type="button" onClick={onClick} className="flex w-64 shrink-0 items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition active:scale-[0.98]"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="line-clamp-2 text-sm font-semibold leading-tight text-neutral-950">{product.name}</div><div className="mt-1 line-clamp-2 text-xs font-medium leading-tight text-neutral-500">{product.brand}</div></div><CompactScoreCircle product={product} /></button>;
 }
 
 function SwapProductTile({ product, label, tone, onClick }) {
