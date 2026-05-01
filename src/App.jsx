@@ -772,6 +772,57 @@ function triggerHapticFeedback() {
   if (typeof window !== "undefined" && window.navigator?.vibrate) window.navigator.vibrate(8);
 }
 
+function FastTapButton({ children, onActivate, className = "", ...props }) {
+  const tap = useRef(null);
+  const ignoreClickUntil = useRef(0);
+
+  const startTap = (event) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    tap.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const moveTap = (event) => {
+    if (!tap.current || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    if (Math.abs(touch.clientX - tap.current.x) > 12 || Math.abs(touch.clientY - tap.current.y) > 12) tap.current = null;
+  };
+
+  const endTap = (event) => {
+    if (!tap.current || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const deltaX = Math.abs(touch.clientX - tap.current.x);
+    const deltaY = Math.abs(touch.clientY - tap.current.y);
+    tap.current = null;
+    if (deltaX > 12 || deltaY > 12) return;
+    event.preventDefault();
+    ignoreClickUntil.current = Date.now() + 650;
+    onActivate?.(event);
+  };
+
+  const handleClick = (event) => {
+    if (Date.now() < ignoreClickUntil.current) return;
+    onActivate?.(event);
+  };
+
+  return (
+    <button
+      {...props}
+      type="button"
+      onClick={handleClick}
+      onTouchStart={startTap}
+      onTouchMove={moveTap}
+      onTouchEnd={endTap}
+      onTouchCancel={() => {
+        tap.current = null;
+      }}
+      className={className}
+    >
+      {children}
+    </button>
+  );
+}
+
 function useSwipeBack(onBack, enabled = true) {
   const gesture = useRef(null);
 
@@ -886,11 +937,11 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false }) {
 }
 
 function ProductRow({ product, onClick }) {
-  return <button type="button" onClick={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{product.name}</span></div><div className="mt-0.5 text-sm text-neutral-500">{product.brand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></div></Card></button>;
+  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{product.name}</span></div><div className="mt-0.5 text-sm text-neutral-500">{product.brand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></div></Card></FastTapButton>;
 }
 
 function BottomNav({ tab, setTab }) {
-  return <div className="relative z-20 border-t border-white/70 bg-white/72 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <button type="button" key={key} onClick={() => setTab(key)} className={`flex min-h-[54px] touch-manipulation flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></button>; })}</div></div>;
+  return <div className="relative z-20 border-t border-white/70 bg-white/72 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <FastTapButton key={key} onActivate={() => setTab(key)} className={`flex min-h-[54px] touch-manipulation flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></FastTapButton>; })}</div></div>;
 }
 
 function ScanScreen({ products, openResult }) {
