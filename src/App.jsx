@@ -708,7 +708,7 @@ function getPartSeverity(totalImpact, part = null) {
   return { label: "Low", tone: "bg-emerald-100 text-emerald-800" };
 }
 
-function hydrateProduct(product) {
+function hydrateProduct(product, extraParts = []) {
   const highRiskKeywords = ["canned", "bottle", "gum", "salt", "sponge", "cutting", "tupperware"];
   const acidicKeywords = ["tomato", "vinegar", "citrus", "mustard", "ketchup", "hot sauce", "yogurt", "cheese", "juice"];
   const heatSensitiveRules = [
@@ -726,7 +726,7 @@ function hydrateProduct(product) {
   const category = getById("categories", product.categoryId);
   const plasticListEvidence = getPlasticListEvidence(product.id);
   const plasticListPenalty = Math.max(-40, plasticListEvidence.reduce((sum, item) => sum + (item.scoreImpact || 0), 0));
-  const rawParts = db.productParts.filter((part) => part.productId === product.id);
+  const rawParts = [...db.productParts, ...extraParts].filter((part) => part.productId === product.id);
   const parts = rawParts.map((part) => {
     const material = getById("materials", part.materialId);
     const plastic = getById("plasticTypes", part.plasticTypeId);
@@ -1121,6 +1121,29 @@ async function fetchOpenFoodFactsProduct(barcode) {
   };
 }
 
+function createPendingProductFromDraft(draft = {}, photos = {}) {
+  const idSeed = normalizeBarcode(draft.barcode) || `${Date.now()}`;
+  const id = `pending_${idSeed}`;
+  const product = {
+    id,
+    name: draft.name?.trim() || "Pending product",
+    brand: draft.brand?.trim() || "Brand pending",
+    categoryId: "cat_food_drink",
+    imageUrl: draft.imageUrl || "",
+    country: "CA",
+    confidence: "Low",
+    verification: "unverified",
+    barcode: normalizeBarcode(draft.barcode),
+    scoreOverride: 52,
+    scoringNote: "Pending community submission. This temporary score uses a conservative placeholder until photos and packaging details are reviewed.",
+    submittedPhotos: photos,
+  };
+  const parts = [
+    { id: `${id}_packaging`, productId: id, partType: "main_container", displayName: "Packaging pending review", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -10, materialImpact: -12, notes: "User submitted this product for review. Front, back label, barcode, and plastic/recycling symbol photos should be checked before final scoring." },
+  ];
+  return { product, parts };
+}
+
 function BottomNav({ tab, setTab }) {
   return <div className="relative z-20 border-t border-white/70 bg-white/72 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <FastTapButton key={key} onActivate={() => setTab(key)} className={`flex min-h-[54px] touch-manipulation flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></FastTapButton>; })}</div></div>;
 }
@@ -1420,17 +1443,22 @@ function PhotoUploadSlot({ label, value, onChange }) {
   );
 }
 
-function AddProductScreen({ close, draft = {} }) {
+function AddProductScreen({ close, draft = {}, onSubmit }) {
   const [flashOn, setFlashOn] = useState(false);
   const [photos, setPhotos] = useState({ front: "", back: "", barcode: "", symbols: "" });
+  const [name, setName] = useState(draft.name || "");
+  const [brand, setBrand] = useState(draft.brand || "");
+  const [barcode, setBarcode] = useState(draft.barcode || "");
+  const [submitted, setSubmitted] = useState(false);
   const setPhoto = (key, value) => setPhotos((current) => ({ ...current, [key]: value }));
-  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl">{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></>}</button><div className="mt-5 flex gap-3"><Button variant="light">Photo review</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload front, back label, barcode, and plastic/recycling symbols so the database can verify the product before it becomes public.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><Field label="Product name" placeholder="e.g. UltraShine Dishwasher Detergent" defaultValue={draft.name || ""} /><Field label="Brand" placeholder="e.g. Kirkland Signature" defaultValue={draft.brand || ""} /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select defaultValue={draft.packagingScan ? "Other" : "Food and drink"} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><Field label="Barcode number" placeholder="Scan or enter manually" defaultValue={draft.barcode || ""} /><div><span className="mb-2 block text-sm font-medium text-neutral-700">Required photos</span><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label="Front" value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Back label" value={photos.back} onChange={(value) => setPhoto("back", value)} /><PhotoUploadSlot label="Barcode" value={photos.barcode} onChange={(value) => setPhoto("barcode", value)} /><PhotoUploadSlot label="Plastic symbols" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button className="w-full">Submit for review</Button></div></div></div>;
+  const canSubmit = name.trim() || barcode.trim();
+  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl">{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></>}</button><div className="mt-5 flex gap-3"><Button variant="light">Photo review</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload front, back label, barcode, and plastic/recycling symbols so the database can verify the product before it becomes public.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Product name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. UltraShine Dishwasher Detergent" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Brand</span><input value={brand} onChange={(event) => setBrand(event.target.value)} placeholder="e.g. Kirkland Signature" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select defaultValue={draft.packagingScan ? "Other" : "Food and drink"} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Barcode number</span><input value={barcode} onChange={(event) => setBarcode(event.target.value)} inputMode="numeric" placeholder="Scan or enter manually" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><div><span className="mb-2 block text-sm font-medium text-neutral-700">Required photos</span><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label="Front" value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Back label" value={photos.back} onChange={(value) => setPhoto("back", value)} /><PhotoUploadSlot label="Barcode" value={photos.barcode} onChange={(value) => setPhoto("barcode", value)} /><PhotoUploadSlot label="Plastic symbols" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label>{submitted && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Submitted and added to your scan history.</div>}<Button onClick={() => { if (!canSubmit) return; setSubmitted(true); onSubmit?.({ ...draft, name, brand, barcode }, photos); }} className={`w-full ${!canSubmit ? "opacity-50" : ""}`}>Submit for review</Button></div></div></div>;
 }
 
-function HistoryScreen({ products, openResult, openScanned, openSearched }) {
-  const scans = db.scans.map((scan) => ({ ...scan, product: products.find((product) => product.id === scan.productId) })).filter((scan) => scan.product);
-  const searchedProducts = products.filter((product) => !scans.some((scan) => scan.product.id === product.id));
-  return <div className="min-h-[690px] px-5 pb-4"><Header title="History" /><div className="mb-5 grid grid-cols-2 gap-3"><button type="button" onClick={openScanned} className="text-left"><Card><div className="p-4"><div className="text-3xl font-semibold">{scans.length}</div><div className="text-sm text-neutral-500">Products scanned</div></div></Card></button><button type="button" onClick={openSearched} className="text-left"><Card><div className="p-4"><div className="text-3xl font-semibold">{searchedProducts.length}</div><div className="text-sm text-neutral-500">Products searched</div></div></Card></button></div><div className="space-y-2">{scans.map((scan) => <ProductRow key={scan.id} product={scan.product} onClick={() => openResult(scan.product)} />)}</div></div>;
+function HistoryScreen({ products, scans = db.scans, openResult, openScanned, openSearched }) {
+  const resolvedScans = scans.map((scan) => ({ ...scan, product: products.find((product) => product.id === scan.productId) })).filter((scan) => scan.product);
+  const searchedProducts = products.filter((product) => !resolvedScans.some((scan) => scan.product.id === product.id));
+  return <div className="min-h-[690px] px-5 pb-4"><Header title="History" /><div className="mb-5 grid grid-cols-2 gap-3"><button type="button" onClick={openScanned} className="text-left"><Card><div className="p-4"><div className="text-3xl font-semibold">{resolvedScans.length}</div><div className="text-sm text-neutral-500">Products scanned</div></div></Card></button><button type="button" onClick={openSearched} className="text-left"><Card><div className="p-4"><div className="text-3xl font-semibold">{searchedProducts.length}</div><div className="text-sm text-neutral-500">Products searched</div></div></Card></button></div><div className="space-y-2">{resolvedScans.map((scan) => <ProductRow key={scan.id} product={scan.product} onClick={() => openResult(scan.product)} />)}</div></div>;
 }
 
 function ShareSheet({ product, close, onShareSuccess }) {
@@ -2235,7 +2263,9 @@ function UserProfileView({ user, products, badges = [], highlightBadge, openResu
 }
 
 export default function PlasticFreeScannerDatabasePrototype() {
-  const products = useMemo(() => db.products.map(hydrateProduct), []);
+  const [submittedProducts, setSubmittedProducts] = useState([]);
+  const [submittedParts, setSubmittedParts] = useState([]);
+  const products = useMemo(() => [...db.products, ...submittedProducts].map((product) => hydrateProduct(product, submittedParts)), [submittedProducts, submittedParts]);
   const [tab, setTab] = useState("scan");
   const [result, setResult] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -2264,6 +2294,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
+  const [scanHistory, setScanHistory] = useState(db.scans);
   const [profile, setProfile] = useState({ firstName: "Dave", lastName: "Rusinek", email: "dave@example.com", password: "password123" });
   const [locale, setLocale] = useState(getDefaultSpellingLocale);
   const localeCopy = getLocaleCopy(locale);
@@ -2306,6 +2337,25 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setAddProductDraft(draft || {});
     resetOverlays();
     setShowAddProduct(true);
+  };
+
+  const recordScan = (productId) => {
+    setScanHistory((current) => current.some((scan) => scan.productId === productId && scan.userId === "user_me") ? current : [{ id: `scan_${productId}_${Date.now()}`, userId: "user_me", productId }, ...current]);
+  };
+
+  const submitPendingProduct = (draft, photos) => {
+    const { product, parts } = createPendingProductFromDraft(draft, photos);
+    setSubmittedProducts((current) => current.some((item) => item.id === product.id) ? current.map((item) => item.id === product.id ? product : item) : [product, ...current]);
+    setSubmittedParts((current) => [...current.filter((part) => part.productId !== product.id), ...parts]);
+    recordScan(product.id);
+    setShowAddProduct(false);
+    setAddProductDraft({});
+    setTimeout(() => {
+      const hydrated = hydrateProduct(product, parts);
+      setResult(hydrated);
+      setShowResult(true);
+    }, 0);
+    showToast("Submitted for review and added to History", 2200);
   };
 
   const openPartDetail = (product, part) => {
@@ -2375,11 +2425,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const handleScan = (product) => {
     incrementBadge("plastic_detective", 2);
     showToast("+2 scans recorded", 2000);
+    if (product?.id) recordScan(product.id);
     openResult(product);
   };
 
-  const scannedProducts = db.scans.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
-  const searchedProducts = products.filter((product) => !db.scans.some((scan) => scan.productId === product.id));
+  const scannedProducts = scanHistory.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
+  const searchedProducts = products.filter((product) => !scanHistory.some((scan) => scan.productId === product.id));
   const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
   const goBack = () => {
     if (viewUser) {
@@ -2460,7 +2511,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showAddProduct ? (
   <motion.div key="add-product" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <AddProductScreen draft={addProductDraft} close={() => { setShowAddProduct(false); setAddProductDraft({}); }} />
+    <AddProductScreen draft={addProductDraft} close={() => { setShowAddProduct(false); setAddProductDraft({}); }} onSubmit={submitPendingProduct} />
   </motion.div>
 ) : showPlans ? (
   <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
@@ -2510,7 +2561,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
     {tab === "scan" && <ScanScreen products={products} openResult={handleScan} openAddProduct={openAddProduct} />}
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
-    {tab === "history" && <HistoryScreen products={products} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
+    {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
     {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} profile={profile} favoriteIds={favoriteIds} localeCopy={localeCopy} />}
   </motion.div>
