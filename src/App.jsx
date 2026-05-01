@@ -677,7 +677,12 @@ function FlashlightIcon({ size = 24 }) {
 
 function BarcodeScanIcon({ size = 24, active = true, animate = false }) {
   const color = active ? "#000" : "#5f5f5f";
-  return <motion.svg width={size} height={size} viewBox="0 0 122.88 97.04" fill={color} aria-hidden="true" animate={animate ? { scale: [1, 1.14, 1] } : { scale: 1 }} transition={{ duration: 0.28, ease: "easeOut" }}><path d="M2.38,0h18.33v4.76H4.76V17.2H0V2.38C0,1.07,1.07,0,2.38,0L2.38,0z M17.92,16.23h8.26v64.58h-8.26V16.23L17.92,16.23z M69.41,16.23h5.9v64.58h-5.9V16.23L69.41,16.23z M57.98,16.23h4.42v64.58h-4.42V16.23L57.98,16.23z M33.19,16.23h2.51v64.58h-2.51 V16.23L33.19,16.23z M97.59,16.23h7.37v64.58h-7.37V16.23L97.59,16.23z M82.32,16.23h8.26v64.58h-8.26V16.23L82.32,16.23z M42.71,16.23h8.26v64.58h-8.26V16.23L42.71,16.23z M4.76,79.84v12.44h15.95v4.76H2.38C1.07,97.04,0,95.98,0,94.66V79.84H4.76 L4.76,79.84z M103.4,0h17.1c1.31,0,2.38,1.07,2.38,2.38V17.2h-4.76V4.76H103.4V0L103.4,0z M122.88,79.84v14.82 c0,1.31-1.07,2.38-2.38,2.38h-17.1v-4.76h14.72V79.84H122.88L122.88,79.84z" /></motion.svg>;
+  return (
+    <motion.svg width={size} height={size} viewBox="0 0 122.88 97.04" fill="none" aria-hidden="true" animate={animate ? { scale: [1, 1.14, 1] } : { scale: 1 }} transition={{ duration: 0.28, ease: "easeOut" }}>
+      <path fill={color} d="M17.92,16.23h8.26v64.58h-8.26V16.23L17.92,16.23z M69.41,16.23h5.9v64.58h-5.9V16.23L69.41,16.23z M57.98,16.23h4.42v64.58h-4.42V16.23L57.98,16.23z M33.19,16.23h2.51v64.58h-2.51 V16.23L33.19,16.23z M97.59,16.23h7.37v64.58h-7.37V16.23L97.59,16.23z M82.32,16.23h8.26v64.58h-8.26V16.23L82.32,16.23z M42.71,16.23h8.26v64.58h-8.26V16.23L42.71,16.23z" />
+      <path d="M20.71 4.76H4.76V17.2M4.76 79.84v12.44h15.95M103.4 4.76h14.72V17.2M118.12 79.84v12.44H103.4" stroke={color} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+    </motion.svg>
+  );
 }
 
 function PackageSymbolIcon({ size = 24, active = true, animate = false }) {
