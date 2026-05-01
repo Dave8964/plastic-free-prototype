@@ -1162,9 +1162,9 @@ function DeleteAccountScreen({ close, onConfirmDelete }) {
 
 function NotificationIcon({ type }) {
   const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
-  if (type === "score") return <svg {...common}><path d="M7 7h10" /><path d="M7 12h6" /><path d="m15 12 3 3 3-3" /><path d="M18 15V7" /><path d="m9 17-3-3-3 3" /><path d="M6 14v3" /></svg>;
-  if (type === "share") return <svg {...common}><path d="M7 17 17 7" /><path d="M9 7h8v8" /><path d="M5 11v8h8" /></svg>;
-  return <svg {...common}><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /><circle cx="12" cy="12" r="3" /></svg>;
+  if (type === "score") return <svg {...common}><path d="M21 12a9 9 0 0 0-15.4-6.3L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 15.4 6.3L21 16" /><path d="M16 16h5v5" /></svg>;
+  if (type === "share") return <svg {...common}><path d="M12 15V3" /><path d="m7 8 5-5 5 5" /><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /></svg>;
+  return <BarcodeScanIcon size={20} active={true} />;
 }
 
 function NotificationsScreen({ close }) {
