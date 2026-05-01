@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
 const db = {
   categories: [
@@ -632,7 +633,9 @@ function hydrateProduct(product) {
     kirkland_tuna: 48,
     kirkland_dishwasher: 12,
     campbells_soup: 15,
-    boba_guys_pearls: 4,
+    plasticlist_boba_guys_black_tea_juice: 22,
+    plasticlist_boba_guys_black_tea_pearls: 16,
+    plasticlist_boba_guys_fruity_flavored_tea: 20,
     chickfila_deluxe: 18
   };
   const score = product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? rawScore;
@@ -726,6 +729,10 @@ function Button({ children, onClick, variant = "solid", className = "" }) {
   return <button type="button" onClick={onClick} className={`inline-flex min-h-10 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold tracking-[-0.01em] transition ${styles[variant] || styles.solid} ${className}`}>{children}</button>;
 }
 
+function BackButton({ onClick, variant = "ghost", className = "" }) {
+  return <Button onClick={onClick} variant={variant} className={`gap-1.5 ${className}`}><span aria-hidden="true">←</span><span>Back</span></Button>;
+}
+
 function ToggleSwitch({ checked, onClick, label }) {
   return <button type="button" onClick={onClick} className={`relative h-8 w-14 shrink-0 rounded-full p-1 transition shadow-inner ${checked ? "bg-neutral-950" : "bg-neutral-300"}`} aria-label={label}><motion.span layout className="block h-6 w-6 rounded-full bg-white shadow-sm" animate={{ x: checked ? 24 : 0 }} transition={{ type: "spring", stiffness: 500, damping: 35 }} /></button>;
 }
@@ -750,7 +757,7 @@ function Phone({ children }) {
   }, []);
 
   return (
-    <div className="mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-[env(safe-area-inset-top)] pb-0 sm:h-[760px] sm:max-w-[430px] sm:rounded-[2.35rem] sm:border sm:border-white/70 sm:pt-0 sm:shadow-[0_32px_90px_rgba(0,0,0,0.22)] sm:ring-1 sm:ring-black/5">
+    <div className="mx-auto flex h-[min(760px,100dvh)] w-[min(100%,430px)] flex-col overflow-hidden rounded-[2.35rem] border border-white/70 bg-[#f8f5ef] pt-0 pb-0 shadow-[0_32px_90px_rgba(0,0,0,0.22)] ring-1 ring-black/5">
       {children}
     </div>
   );
@@ -763,6 +770,71 @@ function ProductImage({ src, alt, className }) {
 
 function triggerHapticFeedback() {
   if (typeof window !== "undefined" && window.navigator?.vibrate) window.navigator.vibrate(8);
+}
+
+function useSwipeBack(onBack, enabled = true) {
+  const gesture = useRef(null);
+
+  const startGesture = (clientX, clientY, event) => {
+    if (!enabled) return;
+    if (event.target.closest?.("button, a, input, textarea, select")) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const edgeZone = Math.min(96, bounds.width * 0.28);
+    const localX = clientX - bounds.left;
+    if (localX > edgeZone) return;
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Some browser test surfaces do not expose capture for synthetic drags.
+    }
+    gesture.current = { x: clientX, y: clientY, time: Date.now() };
+  };
+
+  const finishGesture = (clientX, clientY, event) => {
+    if (!gesture.current) return;
+    const { x, y, time } = gesture.current;
+    gesture.current = null;
+    const deltaX = clientX - x;
+    const deltaY = clientY - y;
+    const elapsed = Date.now() - time;
+    const isBackSwipe = deltaX > 86 && Math.abs(deltaY) < 70 && deltaX > Math.abs(deltaY) * 1.7 && elapsed < 1400;
+    if (!isBackSwipe) return;
+    event.stopPropagation();
+    triggerHapticFeedback();
+    onBack?.();
+  };
+
+  return {
+    onPointerDown: (event) => {
+      if (event.button !== 0) return;
+      startGesture(event.clientX, event.clientY, event);
+    },
+    onPointerUp: (event) => finishGesture(event.clientX, event.clientY, event),
+    onMouseDown: (event) => {
+      if (event.button !== 0) return;
+      startGesture(event.clientX, event.clientY, event);
+    },
+    onMouseUp: (event) => finishGesture(event.clientX, event.clientY, event),
+    onTouchStart: (event) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      startGesture(touch.clientX, touch.clientY, event);
+    },
+    onTouchEnd: (event) => {
+      if (event.changedTouches.length !== 1) return;
+      const touch = event.changedTouches[0];
+      finishGesture(touch.clientX, touch.clientY, event);
+    },
+    onPointerCancel: () => {
+      gesture.current = null;
+    },
+    onMouseLeave: () => {
+      gesture.current = null;
+    },
+    onTouchCancel: () => {
+      gesture.current = null;
+    },
+  };
 }
 
 function ScoreRing({ score, onClick, delay = 0.15, featured = false }) {
@@ -883,17 +955,17 @@ function PlasticListEvidenceSummary({ evidence, onOpen }) {
 
 function PlasticListEvidenceDetail({ evidence, product, close }) {
   if (!evidence?.length) return null;
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="PlasticList data" right={<Button onClick={close} variant="ghost">← Back</Button>} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product?.brand}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{product?.name}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Sample-based chemical testing from PlasticList. This is useful supporting evidence, but the main app score and “Where plastic is found” section stay the primary consumer-facing guidance.</p><div className="mt-4 inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white">CC BY 4.0</div></div></Card><div className="mt-5 space-y-3">{evidence.map((item) => { const meta = plasticListToneMeta(item.resultTone); return <div key={item.id} className={`rounded-3xl p-4 shadow-sm ${meta.bg}`}><div className="flex items-start justify-between gap-3"><div><div className={`font-semibold ${meta.text}`}>{item.testedName}</div><div className="mt-1 text-xs text-neutral-500">{item.sampleLocation} • {item.sampleType}</div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{meta.label}</span></div><p className={`mt-3 text-sm leading-5 ${meta.text}`}>{item.summary}</p><div className="mt-3 grid gap-2">{item.chemicals.map((chemical) => <div key={`${item.id}-${chemical.name}`} className="rounded-2xl bg-white/80 p-3 text-sm shadow-sm"><div className="flex items-center justify-between gap-3"><span className="font-semibold text-neutral-950">{chemical.name}</span><span className="text-xs font-medium text-neutral-500">{chemical.concern}</span></div><div className="mt-1 text-xs text-neutral-500">{chemical.family} • {chemical.amount}</div></div>)}</div><div className="mt-3 text-xs leading-5 text-neutral-500">Attribution: PlasticList, Data on Plastic Chemicals in Bay Area Foods, licensed under CC BY 4.0.</div></div>; })}</div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="PlasticList data" right={<BackButton onClick={close} />} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product?.brand}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{product?.name}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Sample-based chemical testing from PlasticList. This is useful supporting evidence, but the main app score and “Where plastic is found” section stay the primary consumer-facing guidance.</p><div className="mt-4 inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white">CC BY 4.0</div></div></Card><div className="mt-5 space-y-3">{evidence.map((item) => { const meta = plasticListToneMeta(item.resultTone); return <div key={item.id} className={`rounded-3xl p-4 shadow-sm ${meta.bg}`}><div className="flex items-start justify-between gap-3"><div><div className={`font-semibold ${meta.text}`}>{item.testedName}</div><div className="mt-1 text-xs text-neutral-500">{item.sampleLocation} • {item.sampleType}</div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{meta.label}</span></div><p className={`mt-3 text-sm leading-5 ${meta.text}`}>{item.summary}</p><div className="mt-3 grid gap-2">{item.chemicals.map((chemical) => <div key={`${item.id}-${chemical.name}`} className="rounded-2xl bg-white/80 p-3 text-sm shadow-sm"><div className="flex items-center justify-between gap-3"><span className="font-semibold text-neutral-950">{chemical.name}</span><span className="text-xs font-medium text-neutral-500">{chemical.concern}</span></div><div className="mt-1 text-xs text-neutral-500">{chemical.family} • {chemical.amount}</div></div>)}</div><div className="mt-3 text-xs leading-5 text-neutral-500">Attribution: PlasticList, Data on Plastic Chemicals in Bay Area Foods, licensed under CC BY 4.0.</div></div>; })}</div></div>;
 }
 
 function UnknownScreen({ close }) {
-  return <div className="min-h-[690px] px-5 pb-5"><Header title="Product not found" right={<Button onClick={close} variant="ghost">← Back</Button>} /><div className="mt-16 flex flex-col items-center text-center"><div className="mb-5 flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white text-5xl font-semibold text-neutral-950 shadow-sm">!</div><h2 className="text-3xl font-semibold tracking-tight text-neutral-950">We don’t have this yet</h2><p className="mt-3 max-w-[300px] text-sm leading-6 text-neutral-500">Add product and packaging photos so the community can help verify it.</p><Button className="mt-7 px-6">Upload product</Button><Button onClick={close} variant="ghost" className="mt-2">Try another scan</Button></div></div>;
+  return <div className="min-h-[690px] px-5 pb-5"><Header title="Product not found" right={<BackButton onClick={close} />} /><div className="mt-16 flex flex-col items-center text-center"><div className="mb-5 flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white text-5xl font-semibold text-neutral-950 shadow-sm">!</div><h2 className="text-3xl font-semibold tracking-tight text-neutral-950">We don’t have this yet</h2><p className="mt-3 max-w-[300px] text-sm leading-6 text-neutral-500">Add product and packaging photos so the community can help verify it.</p><Button className="mt-7 px-6">Upload product</Button><Button onClick={close} variant="ghost" className="mt-2">Try another scan</Button></div></div>;
 }
 
 function DetailScreen({ product, part, close }) {
   const sources = [...getSourcesFor({ entityType: "part", entityId: part.id }), ...getSourcesFor({ entityType: "plastic_type", entityId: part.plasticTypeId }), ...part.contexts.flatMap((context) => getSourcesFor({ entityType: "context", entityId: context.contextId }))];
   const uniqueSources = Array.from(new Map(sources.map((item) => [item.source.id, item])).values());
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Why" right={<Button onClick={close} variant="ghost">← Back</Button>} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product.name}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{part.displayName}</h2><div className="mt-3 inline-flex rounded-full bg-[#f7f3eb] px-3 py-1 text-sm text-neutral-700">{getPartMaterialLabel(part) || "Unknown material"}</div><p className="mt-4 text-sm leading-6 text-neutral-500">{part.notes}</p>{part.linerInfo && <div className="mt-4 rounded-2xl bg-[#f7f3eb] p-3"><div className="text-sm font-semibold text-neutral-950">{part.linerType === "bpa_free_confirmed" ? "Label confirmed" : "Liner assumption"}: {part.linerInfo.linerLabel}</div><p className="mt-1 text-sm leading-5 text-neutral-500">{part.linerInfo.linerSummary}</p></div>}</div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Score impact</h3><div className="mt-3 space-y-2 text-sm"><div className="flex justify-between"><span>Component</span><span>{part.baseImpact}</span></div><div className="flex justify-between"><span>Material type</span><span>{part.materialImpact}</span></div>
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Why" right={<BackButton onClick={close} />} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product.name}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{part.displayName}</h2><div className="mt-3 inline-flex rounded-full bg-[#f7f3eb] px-3 py-1 text-sm text-neutral-700">{getPartMaterialLabel(part) || "Unknown material"}</div><p className="mt-4 text-sm leading-6 text-neutral-500">{part.notes}</p>{part.linerInfo && <div className="mt-4 rounded-2xl bg-[#f7f3eb] p-3"><div className="text-sm font-semibold text-neutral-950">{part.linerType === "bpa_free_confirmed" ? "Label confirmed" : "Liner assumption"}: {part.linerInfo.linerLabel}</div><p className="mt-1 text-sm leading-5 text-neutral-500">{part.linerInfo.linerSummary}</p></div>}</div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Score impact</h3><div className="mt-3 space-y-2 text-sm"><div className="flex justify-between"><span>Component</span><span>{part.baseImpact}</span></div><div className="flex justify-between"><span>Material type</span><span>{part.materialImpact}</span></div>
           {part.linerInfo && <div className="flex justify-between"><span>{part.linerInfo.linerLabel}</span><span>{part.linerAdjustment}</span></div>}{part.labelEvidenceBonus > 0 && <div className="flex justify-between text-emerald-700"><span>Label evidence bonus</span><span>+{part.labelEvidenceBonus}</span></div>}<div className="flex justify-between"><span>Context</span><span>{part.contextImpact}</span></div><div className="flex justify-between border-t border-neutral-200 pt-2 font-semibold"><span>Total impact</span><span>{part.totalImpact}</span></div></div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Context modifiers</h3><div className="mt-3 space-y-2">{part.contexts.length ? part.contexts.map((item) => <div key={item.id} className="rounded-2xl bg-[#f7f3eb] p-3"><div className="flex justify-between gap-3 font-medium text-neutral-950"><span>{item.context.name}</span><span>{item.context.penalty}</span></div><p className="mt-1 text-sm leading-5 text-neutral-500">{item.context.summary}</p></div>) : <p className="text-sm text-neutral-500">No special context modifiers attached.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Sources & research</h3><div className="mt-3 space-y-2">{uniqueSources.length ? uniqueSources.map((link) => <SourceCard key={link.source.id} link={link} />) : <p className="text-sm text-neutral-500">No sources attached yet.</p>}</div></div></div>;
 }
 
@@ -902,7 +974,7 @@ function ScoreBreakdownPanel({ product, close }) {
 
   return (
     <div className="min-h-[690px] overflow-y-auto px-5 pb-5">
-      <Header title="Score details" right={<Button onClick={close} variant="ghost">Back</Button>} />
+      <Header title="Score details" right={<BackButton onClick={close} />} />
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
         <Card>
           <div className="flex flex-col items-center p-6 text-center">
@@ -958,7 +1030,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
 
 function AddProductScreen({ close }) {
   const [flashOn, setFlashOn] = useState(false);
-  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><Button onClick={close} variant="light">Back</Button></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl"><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></button><div className="mt-5 flex gap-3"><Button variant="light">Front photo</Button><Button variant="light">Packaging</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[300px] text-sm leading-6 text-white/70">Submit the product and packaging details so the database can review hidden plastic and update the score.</p></div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><Field label="Product name" placeholder="e.g. UltraShine Dishwasher Detergent" /><Field label="Brand" placeholder="e.g. Kirkland Signature" /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Baby</option><option>Other</option></select></label><Field label="Barcode number" placeholder="Scan or enter manually" /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Container symbol scan</span><div className="rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-sm text-neutral-600">For takeout containers with no barcode, scan recycling icons, resin numbers, microwave-safe symbols, compostable markings, or hot-cup liner symbols. Heat-sensitive containers are scored more aggressively.</div></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button className="w-full">Submit for review</Button></div></div></div>;
+  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl"><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></button><div className="mt-5 flex gap-3"><Button variant="light">Front photo</Button><Button variant="light">Packaging</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[300px] text-sm leading-6 text-white/70">Submit the product and packaging details so the database can review hidden plastic and update the score.</p></div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><Field label="Product name" placeholder="e.g. UltraShine Dishwasher Detergent" /><Field label="Brand" placeholder="e.g. Kirkland Signature" /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Baby</option><option>Other</option></select></label><Field label="Barcode number" placeholder="Scan or enter manually" /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Container symbol scan</span><div className="rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-sm text-neutral-600">For takeout containers with no barcode, scan recycling icons, resin numbers, microwave-safe symbols, compostable markings, or hot-cup liner symbols. Heat-sensitive containers are scored more aggressively.</div></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button className="w-full">Submit for review</Button></div></div></div>;
 }
 
 function HistoryScreen({ products, openResult, openScanned, openSearched }) {
@@ -969,11 +1041,11 @@ function HistoryScreen({ products, openResult, openScanned, openSearched }) {
 
 function ShareSheet({ product, close, onShareSuccess }) {
   const shareLink = `https://plasticfree.app/product/${product?.id || "unknown"}`;
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Share product" right={<Button onClick={close} variant="ghost">Back</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#f7f3eb] text-2xl">↗</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Share {product?.name}</h2><p className="mt-2 text-sm leading-6 text-neutral-500">This sends a link that opens in the app. If they don’t have the app, it takes them to the App Store.</p><div className="mt-5 rounded-2xl bg-[#f7f3eb] p-3 text-left text-xs text-neutral-500">{shareLink}</div></div></Card><div className="mt-5 grid grid-cols-3 gap-3"><Button onClick={() => onShareSuccess?.("Text")} variant="outline" className="bg-white">Text</Button><Button onClick={() => onShareSuccess?.("WhatsApp")} variant="outline" className="bg-white">WhatsApp</Button><Button onClick={() => onShareSuccess?.("Email")} variant="outline" className="bg-white">Email</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Share product" right={<BackButton onClick={close} />} /><Card><div className="p-5 text-center"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#f7f3eb] text-2xl">↗</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Share {product?.name}</h2><p className="mt-2 text-sm leading-6 text-neutral-500">This sends a link that opens in the app. If they don’t have the app, it takes them to the App Store.</p><div className="mt-5 rounded-2xl bg-[#f7f3eb] p-3 text-left text-xs text-neutral-500">{shareLink}</div></div></Card><div className="mt-5 grid grid-cols-3 gap-3"><Button onClick={() => onShareSuccess?.("Text")} variant="outline" className="bg-white">Text</Button><Button onClick={() => onShareSuccess?.("WhatsApp")} variant="outline" className="bg-white">WhatsApp</Button><Button onClick={() => onShareSuccess?.("Email")} variant="outline" className="bg-white">Email</Button></div></div>;
 }
 
 function ProductListScreen({ title, products, openResult, close }) {
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title={title} right={<Button onClick={close} variant="ghost">Back</Button>} /><div className="space-y-2">{products.length ? products.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <Card><div className="p-5 text-center text-sm text-neutral-500">No products yet.</div></Card>}</div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title={title} right={<BackButton onClick={close} />} /><div className="space-y-2">{products.length ? products.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <Card><div className="p-5 text-center text-sm text-neutral-500">No products yet.</div></Card>}</div></div>;
 }
 
 function SuggestedUser({ user }) {
@@ -1026,7 +1098,7 @@ function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProf
 
   const updatedButtonClass = "bg-white text-neutral-300 border border-neutral-200 shadow-none hover:bg-white";
 
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Settings" right={<Button onClick={close} variant="ghost">← Back</Button>} /><div className="space-y-4"><SettingsSection title="Update name"><div className="grid grid-cols-2 gap-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">First</span><input value={firstName} onChange={(event) => { setFirstName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Last</span><input value={lastName} onChange={(event) => { setLastName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ firstName, lastName }); setNameUpdated(true); }} className={`mt-4 w-full ${nameUpdated ? updatedButtonClass : ""}`}>{nameUpdated ? <span className="text-neutral-300">Name updated!</span> : "Update name"}</Button></SettingsSection><SettingsSection title="Update email address"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Email address</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button onClick={() => { updateProfile({ email }); setEmailUpdated(true); }} className={`mt-4 w-full ${emailUpdated ? updatedButtonClass : ""}`}>{emailUpdated ? <span className="text-neutral-300">Email updated!</span> : "Update email"}</Button></SettingsSection><SettingsSection title="Change password"><div className="space-y-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Current password</span><input type="password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter current password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">New password</span><input type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter new password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ password: newPassword }); setPasswordUpdated(true); }} className={`mt-4 w-full ${passwordUpdated ? updatedButtonClass : ""}`}>{passwordUpdated ? <span className="text-neutral-300">Password updated!</span> : "Update password"}</Button></SettingsSection><SettingsSection title="Notifications & Privacy"><div className="mb-4 flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Push notifications</div><p className="mt-1 text-sm text-neutral-500">Get updates about product reviews, comments, and new matches.</p></div><ToggleSwitch checked={notificationsOn} onClick={() => setNotificationsOn(!notificationsOn)} label="Toggle notifications" /></div><div className="flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Share activity</div><p className="mt-1 text-sm text-neutral-500">Show your scans and favorites in your social feed.</p></div><ToggleSwitch checked={shareActivity} onClick={() => setShareActivity(!shareActivity)} label="Toggle share activity" /></div></SettingsSection><Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button><Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Settings" right={<BackButton onClick={close} />} /><div className="space-y-4"><SettingsSection title="Update name"><div className="grid grid-cols-2 gap-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">First</span><input value={firstName} onChange={(event) => { setFirstName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Last</span><input value={lastName} onChange={(event) => { setLastName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ firstName, lastName }); setNameUpdated(true); }} className={`mt-4 w-full ${nameUpdated ? updatedButtonClass : ""}`}>{nameUpdated ? <span className="text-neutral-300">Name updated!</span> : "Update name"}</Button></SettingsSection><SettingsSection title="Update email address"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Email address</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button onClick={() => { updateProfile({ email }); setEmailUpdated(true); }} className={`mt-4 w-full ${emailUpdated ? updatedButtonClass : ""}`}>{emailUpdated ? <span className="text-neutral-300">Email updated!</span> : "Update email"}</Button></SettingsSection><SettingsSection title="Change password"><div className="space-y-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Current password</span><input type="password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter current password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">New password</span><input type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter new password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ password: newPassword }); setPasswordUpdated(true); }} className={`mt-4 w-full ${passwordUpdated ? updatedButtonClass : ""}`}>{passwordUpdated ? <span className="text-neutral-300">Password updated!</span> : "Update password"}</Button></SettingsSection><SettingsSection title="Notifications & Privacy"><div className="mb-4 flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Push notifications</div><p className="mt-1 text-sm text-neutral-500">Get updates about product reviews, comments, and new matches.</p></div><ToggleSwitch checked={notificationsOn} onClick={() => setNotificationsOn(!notificationsOn)} label="Toggle notifications" /></div><div className="flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Share activity</div><p className="mt-1 text-sm text-neutral-500">Show your scans and favorites in your social feed.</p></div><ToggleSwitch checked={shareActivity} onClick={() => setShareActivity(!shareActivity)} label="Toggle share activity" /></div></SettingsSection><Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button><Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button></div></div>;
 }
 
 function SignInScreen({ onSignIn }) {
@@ -1034,12 +1106,12 @@ function SignInScreen({ onSignIn }) {
 }
 
 function DeleteAccountScreen({ close, onConfirmDelete }) {
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Delete account" right={<Button onClick={close} variant="ghost">Back</Button>} /><div className="mt-8 rounded-3xl bg-white p-5 text-center shadow-sm"><div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 text-4xl font-semibold text-red-700">!</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Are you sure?</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Deleting your account will permanently remove your profile, scan history, favorites, social activity, and saved settings. This cannot be undone.</p><Button onClick={onConfirmDelete} className="mt-6 w-full bg-red-700 hover:bg-red-800">Permanently delete account</Button><Button onClick={close} variant="ghost" className="mt-2 w-full">Cancel</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Delete account" right={<BackButton onClick={close} />} /><div className="mt-8 rounded-3xl bg-white p-5 text-center shadow-sm"><div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 text-4xl font-semibold text-red-700">!</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Are you sure?</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Deleting your account will permanently remove your profile, scan history, favorites, social activity, and saved settings. This cannot be undone.</p><Button onClick={onConfirmDelete} className="mt-6 w-full bg-red-700 hover:bg-red-800">Permanently delete account</Button><Button onClick={close} variant="ghost" className="mt-2 w-full">Cancel</Button></div></div>;
 }
 
 function NotificationsScreen({ close }) {
   const notifications = [{ id: 1, title: "Product score updated", text: "Solid Light Tuna changed from 42 → 38 after new liner information was added.", time: "2h", icon: "↕" }, { id: 2, title: "Product shared with you", text: "Maya shared Paper-Wrapped Bar Soap with you.", time: "5h", icon: "↗" }, { id: 3, title: "New scan from someone you follow", text: "Jon scanned UltraShine Dishwasher Detergent.", time: "1d", icon: "⌕" }];
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Notifications" right={<Button onClick={close} variant="ghost">Back</Button>} /><div className="space-y-2">{notifications.map((item) => <div key={item.id} className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f7f3eb] font-semibold text-neutral-950">{item.icon}</div><div className="min-w-0 flex-1"><div className="font-medium text-neutral-950">{item.title}</div><div className="mt-1 text-sm leading-5 text-neutral-500">{item.text}</div><div className="mt-1 text-xs text-neutral-400">{item.time} ago</div></div></div>)}</div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Notifications" right={<BackButton onClick={close} />} /><div className="space-y-2">{notifications.map((item) => <div key={item.id} className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f7f3eb] font-semibold text-neutral-950">{item.icon}</div><div className="min-w-0 flex-1"><div className="font-medium text-neutral-950">{item.title}</div><div className="mt-1 text-sm leading-5 text-neutral-500">{item.text}</div><div className="mt-1 text-xs text-neutral-400">{item.time} ago</div></div></div>)}</div></div>;
 }
 
 function PlansScreen({ close }) {
@@ -1047,7 +1119,7 @@ function PlansScreen({ close }) {
   const proPrice = billing === "yearly" ? "$39.99/year" : "$4.99/month";
   const freeFeatures = ["5 scans per day", "Last 30 scanned products", "Basic product score", "Plastic breakdown", "Sources and research", "Community feed", "Location-based recyclability"];
   const proFeatures = ["Unlimited scans", "Unlimited history", "Advanced search by product, brand, category, and filters", "Offline mode for grocery stores", "Strict mode and personal risk profiles", "Product alerts when score changes", "Exportable shopping lists", "Barcode batch scan for pantry cleanups", "Early access to new product data", "Priority product verification requests"];
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Plans" right={<Button onClick={close} variant="ghost">Back</Button>} /><div className="mb-5 grid grid-cols-2 rounded-full bg-white/70 p-1 shadow-sm backdrop-blur-xl"><button type="button" onClick={() => setBilling("monthly")} className={`rounded-full py-2 text-sm font-semibold transition ${billing === "monthly" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500"}`}>Monthly</button><button type="button" onClick={() => setBilling("yearly")} className={`rounded-full py-2 text-sm font-semibold transition ${billing === "yearly" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500"}`}>Yearly</button></div><div className="space-y-4"><Card><div className="p-5"><div className="flex items-start justify-between"><div><h2 className="text-2xl font-semibold tracking-[-0.04em] text-neutral-950">Free</h2><p className="mt-1 text-sm text-neutral-500">For casual product checks.</p></div><div className="rounded-full bg-[#f7f3eb] px-3 py-1 text-sm font-semibold text-neutral-700">$0</div></div><div className="mt-5 space-y-3">{freeFeatures.map((feature) => <div key={feature} className="flex gap-2 text-sm text-neutral-700"><span className="text-neutral-950">✓</span><span>{feature}</span></div>)}</div><Button variant="outline" className="mt-5 w-full bg-white">Current plan</Button></div></Card><div className="overflow-hidden rounded-[28px] bg-neutral-950 p-5 text-white shadow-[0_18px_42px_rgba(0,0,0,0.22)]"><div className="pointer-events-none -mx-5 -mt-5 mb-5 h-24 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_55%)]" /><div className="-mt-24 flex items-start justify-between"><div><div className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xl">Best value</div><h2 className="text-2xl font-semibold tracking-[-0.04em]">Pro</h2><p className="mt-1 text-sm text-neutral-300">For people actively reducing plastic exposure.</p></div><div className="text-right"><div className="text-xl font-semibold">{proPrice}</div>{billing === "yearly" && <div className="text-xs text-neutral-400">Save 33%</div>}</div></div><div className="mt-5 space-y-3">{proFeatures.map((feature) => <div key={feature} className="flex gap-2 text-sm text-neutral-200"><span>✓</span><span>{feature}</span></div>)}</div><Button variant="light" className="mt-5 w-full">Start Pro</Button></div></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Plans" right={<BackButton onClick={close} />} /><div className="mb-5 grid grid-cols-2 rounded-full bg-white/70 p-1 shadow-sm backdrop-blur-xl"><button type="button" onClick={() => setBilling("monthly")} className={`rounded-full py-2 text-sm font-semibold transition ${billing === "monthly" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500"}`}>Monthly</button><button type="button" onClick={() => setBilling("yearly")} className={`rounded-full py-2 text-sm font-semibold transition ${billing === "yearly" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500"}`}>Yearly</button></div><div className="space-y-4"><Card><div className="p-5"><div className="flex items-start justify-between"><div><h2 className="text-2xl font-semibold tracking-[-0.04em] text-neutral-950">Free</h2><p className="mt-1 text-sm text-neutral-500">For casual product checks.</p></div><div className="rounded-full bg-[#f7f3eb] px-3 py-1 text-sm font-semibold text-neutral-700">$0</div></div><div className="mt-5 space-y-3">{freeFeatures.map((feature) => <div key={feature} className="flex gap-2 text-sm text-neutral-700"><span className="text-neutral-950">✓</span><span>{feature}</span></div>)}</div><Button variant="outline" className="mt-5 w-full bg-white">Current plan</Button></div></Card><div className="overflow-hidden rounded-[28px] bg-neutral-950 p-5 text-white shadow-[0_18px_42px_rgba(0,0,0,0.22)]"><div className="pointer-events-none -mx-5 -mt-5 mb-5 h-24 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_55%)]" /><div className="-mt-24 flex items-start justify-between"><div><div className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xl">Best value</div><h2 className="text-2xl font-semibold tracking-[-0.04em]">Pro</h2><p className="mt-1 text-sm text-neutral-300">For people actively reducing plastic exposure.</p></div><div className="text-right"><div className="text-xl font-semibold">{proPrice}</div>{billing === "yearly" && <div className="text-xs text-neutral-400">Save 33%</div>}</div></div><div className="mt-5 space-y-3">{proFeatures.map((feature) => <div key={feature} className="flex gap-2 text-sm text-neutral-200"><span>✓</span><span>{feature}</span></div>)}</div><Button variant="light" className="mt-5 w-full">Start Pro</Button></div></div></div>;
 }
 
 function BadgeCard({ badge, highlight, compact = false }) {
@@ -1160,7 +1232,7 @@ function BadgeCard({ badge, highlight, compact = false }) {
 }
 
 function BadgesScreen({ badges, highlightBadge, close }) {
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badges" right={<Button onClick={close} variant="ghost">Back</Button>} /><div className="grid grid-cols-2 gap-3">{badges.map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badges" right={<BackButton onClick={close} />} /><div className="grid grid-cols-2 gap-3">{badges.map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div>;
 }
 
 function FavoritesScreen({ products, openResult, close, favoriteIds = null }) {
@@ -1168,7 +1240,7 @@ function FavoritesScreen({ products, openResult, close, favoriteIds = null }) {
   const categories = ["All", ...Object.keys(groups)];
   const [activeCategory, setActiveCategory] = useState("All");
   const visibleProducts = activeCategory === "All" ? Object.values(groups).flat() : groups[activeCategory] || [];
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Favorites" right={<Button onClick={close} variant="ghost">Back</Button>} /><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map((category) => <button type="button" key={category} onClick={() => setActiveCategory(category)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm ${activeCategory === category ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{category}</button>)}</div><Card><div className="p-4"><h3 className="mb-3 font-semibold text-neutral-950">{activeCategory === "All" ? "All favorites" : activeCategory}</h3><div className="space-y-2">{visibleProducts.length ? visibleProducts.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="p-5 text-center text-sm text-neutral-500">No favorites yet.</p>}</div></div></Card></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Favorites" right={<BackButton onClick={close} />} /><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map((category) => <button type="button" key={category} onClick={() => setActiveCategory(category)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm ${activeCategory === category ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{category}</button>)}</div><Card><div className="p-4"><h3 className="mb-3 font-semibold text-neutral-950">{activeCategory === "All" ? "All favorites" : activeCategory}</h3><div className="space-y-2">{visibleProducts.length ? visibleProducts.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="p-5 text-center text-sm text-neutral-500">No favorites yet.</p>}</div></div></Card></div>;
 }
 
 function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, profile }) {
@@ -1184,6 +1256,9 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
   const soap = products.find((product) => product.id === "paper_soap");
   const dishwasher = products.find((product) => product.id === "kirkland_dishwasher");
   const hunts = products.find((product) => product.id === "hunts_tomato_paste");
+  const bobaJuice = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_juice");
+  const bobaPearls = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls");
+  const bobaFruity = products.find((product) => product.id === "plasticlist_boba_guys_fruity_flavored_tea");
   const tests = [
     [clampScore(-10) === 0, "clampScore clamps negative scores to 0"],
     [clampScore(120) === 100, "clampScore clamps scores above 100 to 100"],
@@ -1201,7 +1276,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [products.find(p => p.id === "campbells_soup")?.score === 15, "hot canned soup should use calibrated common-ground score"],
     [products.find(p => p.id === "campbells_soup")?.parts.every(part => part.totalImpact >= -40 && part.totalImpact <= 0), "part impacts should be normalized between 0 and -40"],
     [products.find(p => p.id === "paper_soap")?.parts.every(part => part.totalImpact === 0), "paper-only soap wrapper should not show an artificial penalty"],
-    [products.find(p => p.id === "campbells_soup")?.parts.some(part => part.severity?.label === "Severe"), "severe part labels should exist"],
+    [getPartSeverity(-40).label === "Severe", "severe part labels should exist for non-material-specific penalties"],
     [products.find(p => p.id === "old_spice")?.score === 32, "Old Spice should match calibrated common-ground score"],
     [products.find(p => p.id === "old_spice")?.parts.filter((part) => part.plasticTypeId === "pp5").every((part) => part.severity?.label === "Plastic packaging"), "same PP packaging should use a consistent visible label"],
     [products.find(p => p.id === "always_ultra")?.score === 12, "Always Ultra Thin should match calibrated common-ground score"],
@@ -1243,9 +1318,14 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [db.products.filter((p) => p.plasticListId && p.scoreOverride !== undefined).length === 0, "PlasticList imports should use calculated scores instead of generated overrides"],
     [products.filter((p) => p.plasticListEvidence?.length && p.score <= 3).length < products.filter((p) => p.plasticListEvidence?.length).length * 0.2, "PlasticList calculated scores should not collapse into the bottom bucket"],
     [products.filter((p) => p.plasticListEvidence?.length).length >= 236, "PlasticList evidence should attach to imported products"],
-    [products.find((p) => p.id === "plasticlist_boba_guys_black_tea_pearls")?.sources.some((link) => link.sourceId === "source_plasticlist"), "PlasticList source should appear on evidence-backed products"],
-    [products.find((p) => p.id === "plasticlist_boba_guys_black_tea_pearls")?.parts.some((part) => part.displayName === "Plastic drink cup"), "PlasticList imports should infer packaging parts instead of generic samples"],
-    [!products.find((p) => p.id === "plasticlist_boba_guys_fruity_flavored_tea")?.riskFactors.some((factor) => factor.name === "Heat exposure"), "cold Boba Guys fruity tea should not inherit heat exposure"],
+    [bobaPearls?.sources.some((link) => link.sourceId === "source_plasticlist"), "PlasticList source should appear on evidence-backed products"],
+    [bobaPearls?.parts.some((part) => part.displayName === "Plastic drink cup"), "PlasticList imports should infer packaging parts instead of generic samples"],
+    [!bobaFruity?.riskFactors.some((factor) => factor.name === "Heat exposure"), "cold Boba Guys fruity tea should not inherit heat exposure"],
+    [!bobaPearls?.riskFactors.some((factor) => factor.name === "Heat exposure"), "cold Boba Guys pearls should not inherit heat exposure"],
+    [bobaJuice?.score === 22, "Boba Guys Black Tea Juice should stay in the high-concern range without heat exposure"],
+    [bobaPearls?.score === 16, "Boba Guys Black Tea Pearls should be the highest-concern Boba sample"],
+    [bobaFruity?.score === 20, "Boba Guys Fruity Flavored Tea should stay in the high-concern range without heat exposure"],
+    [[bobaJuice, bobaPearls, bobaFruity].every((product) => product?.score >= 15 && product.score <= 30), "high-concern cold Boba Guys products should score 15-30 without heat exposure"],
     [products.find((p) => p.id === "plasticlist_coca_cola_original")?.parts.some((part) => part.displayName === "Can liner"), "PlasticList canned drinks should expose can liners"],
     [products.find((p) => p.id === "plasticlist_enfamil_neuro_pro_587g_infant_formula_can")?.hasHighRiskCanScenario === false, "dry formula cans should not trigger the hot canned soup warning"],
     [getById("sources", "source_plasticlist")?.license === "CC BY 4.0", "PlasticList source should preserve CC BY attribution"],
@@ -1273,10 +1353,22 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [showPlasticListDetails, setShowPlasticListDetails] = useState(false);
   const recyclingLocation = getRecyclingLocation(selectedRecyclingLocation);
+  const handleSwipeBack = () => {
+    if (showScoreDetails) {
+      setShowScoreDetails(false);
+      return;
+    }
+    if (showPlasticListDetails) {
+      setShowPlasticListDetails(false);
+      return;
+    }
+    close();
+  };
+  const swipeBackHandlers = useSwipeBack(handleSwipeBack, Boolean(product));
 
   if (!product) return <UnknownScreen close={close} />;
-  if (showScoreDetails) return <ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} />;
-  if (showPlasticListDetails) return <PlasticListEvidenceDetail evidence={product.plasticListEvidence} product={product} close={() => setShowPlasticListDetails(false)} />;
+  if (showScoreDetails) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
+  if (showPlasticListDetails) return <div className="min-h-full" {...swipeBackHandlers}><PlasticListEvidenceDetail evidence={product.plasticListEvidence} product={product} close={() => setShowPlasticListDetails(false)} /></div>;
 
   const isFavorite = favoriteIds.includes(product.id);
   const isNearIdealScore = product.score >= 92;
@@ -1355,8 +1447,8 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
   };
 
   return (
-    <div className="min-h-[690px] overflow-y-auto px-5 pb-5">
-      <Header title="Product score" right={<Button onClick={close} variant="ghost">← Back</Button>} />
+    <div className="min-h-[690px] overflow-y-auto px-5 pb-5" {...swipeBackHandlers}>
+      <Header title="Product score" right={<BackButton onClick={close} />} />
 
       <Card>
         <div className="p-5 text-center">
@@ -1548,7 +1640,7 @@ function UserProfileView({ user, products, badges = [], highlightBadge, openResu
   const following = db.follows.filter((follow) => follow.followerId === user.id).length + (user.id === "user_me" ? 0 : 2);
   const followers = db.follows.filter((follow) => follow.followedId === user.id).length + (user.id === "user_me" ? 12 : 34);
 
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title={user.displayName} right={<Button onClick={close} variant="ghost">Back</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">{user.avatar}</div><h2 className="text-2xl font-semibold text-neutral-950">{user.displayName}</h2><p className="text-sm text-neutral-500">{user.role}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{userScans}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{userSaves.length}</div><div className="text-xs text-neutral-500">Favorites</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Recent favorites</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{userSaves.length ? userSaves.slice(0, 3).map((p) => <ProductRow key={p.id} product={p} onClick={() => openResult(p)} />) : <p className="text-sm text-neutral-500">No favorites yet.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges earned</h3><span className="text-sm font-medium text-neutral-400">Top 4</span></div><div className="grid grid-cols-2 gap-3">{badges.slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title={user.displayName} right={<BackButton onClick={close} />} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">{user.avatar}</div><h2 className="text-2xl font-semibold text-neutral-950">{user.displayName}</h2><p className="text-sm text-neutral-500">{user.role}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{userScans}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{userSaves.length}</div><div className="text-xs text-neutral-500">Favorites</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Recent favorites</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{userSaves.length ? userSaves.slice(0, 3).map((p) => <ProductRow key={p.id} product={p} onClick={() => openResult(p)} />) : <p className="text-sm text-neutral-500">No favorites yet.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges earned</h3><span className="text-sm font-medium text-neutral-400">Top 4</span></div><div className="grid grid-cols-2 gap-3">{badges.slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div></div>;
 }
 
 export default function PlasticFreeScannerDatabasePrototype() {
@@ -1652,8 +1744,56 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const scannedProducts = db.scans.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
   const searchedProducts = products.filter((product) => !db.scans.some((scan) => scan.productId === product.id));
   const hideNav = viewUser || showResult || detail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
+  const goBack = () => {
+    if (viewUser) {
+      setViewUser(null);
+      return;
+    }
+    if (showAddProduct) {
+      setShowAddProduct(false);
+      return;
+    }
+    if (showPlans) {
+      setShowPlans(false);
+      return;
+    }
+    if (showNotifications) {
+      setShowNotifications(false);
+      return;
+    }
+    if (shareProduct) {
+      setShareProduct(null);
+      return;
+    }
+    if (historyList) {
+      setHistoryList(null);
+      return;
+    }
+    if (showDeleteAccount) {
+      setShowDeleteAccount(false);
+      return;
+    }
+    if (showBadges) {
+      setShowBadges(false);
+      return;
+    }
+    if (showFavorites) {
+      setShowFavorites(false);
+      return;
+    }
+    if (showSettings) {
+      setShowSettings(false);
+      return;
+    }
+    if (detail) {
+      setDetail(null);
+      return;
+    }
+    if (showResult) setShowResult(false);
+  };
+  const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(hideNav && !isSignedOut));
 
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-4 font-sans text-neutral-950 antialiased sm:px-4 sm:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto" {...appSwipeBackHandlers}><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} favorites`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} />
