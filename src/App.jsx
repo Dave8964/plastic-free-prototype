@@ -1069,7 +1069,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
   const [plasticFreeOnly, setPlasticFreeOnly] = useState(false);
   const [activeTags, setActiveTags] = useState([]);
   const tags = ["Personal care", "Food", "Cleaning", "Hidden plastic", "Available in Canada", "Microwave safe", "Feminine hygiene", "Baby", "Kitchen", "Clothing", "Teas", "Sunscreen"];
-  const trendingProducts = ["paper_soap", "kirkland_dishwasher", "allens_apple"].map((id) => products.find((product) => product.id === id)).filter(Boolean);
+  const trendingProducts = getTrendingProducts(products);
   const q = query.trim().toLowerCase();
   const toggleTag = (tag) => setActiveTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
   const filtered = products.filter((product) => {
@@ -1154,6 +1154,26 @@ function getBetterSwap(products) {
   }, null);
 }
 
+function getTrendingProducts(products) {
+  const ids = [
+    "paper_soap",
+    "hunts_tomato_paste",
+    "blueland_dishwasher_tablets",
+    "kirkland_tuna",
+    "kirkland_dishwasher",
+    "old_spice",
+    "allens_apple",
+    "campbells_soup",
+    "always_ultra",
+    "plasticlist_boba_guys_fruity_flavored_tea",
+    "plasticlist_coca_cola_original",
+    "plasticlist_enfamil_neuro_pro_587g_infant_formula_can"
+  ];
+  const picked = ids.map((id) => products.find((product) => product.id === id)).filter(Boolean);
+  const fallback = products.filter((product) => !picked.some((item) => item.id === product.id)).slice(0, 10 - picked.length);
+  return [...picked, ...fallback].slice(0, 10);
+}
+
 function CompactScoreCircle({ product, className = "" }) {
   return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${className}`} style={getScoreBadgeStyle(product.theme)}>{product.score}</div>;
 }
@@ -1163,17 +1183,17 @@ function SocialHighlightHeader({ title, copy }) {
 }
 
 function TrendingProductChip({ product, onClick }) {
-  return <button type="button" onClick={onClick} className="flex w-48 shrink-0 items-center gap-3 rounded-2xl bg-[#f7f3eb] p-2 text-left transition active:scale-[0.98]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="line-clamp-2 text-xs font-semibold leading-tight text-neutral-950">{product.name}</div><div className="mt-0.5 truncate text-[11px] font-medium text-neutral-500">{product.brand}</div></div><CompactScoreCircle product={product} /></button>;
+  return <button type="button" onClick={onClick} className="flex w-64 shrink-0 items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition active:scale-[0.98]"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="line-clamp-2 min-h-9 text-sm font-semibold leading-tight text-neutral-950">{product.name}</div><div className="mt-1 line-clamp-2 text-xs font-medium leading-tight text-neutral-500">{product.brand}</div></div><CompactScoreCircle product={product} /></button>;
 }
 
 function SwapProductTile({ product, label, tone, onClick }) {
   const isBetter = tone === "better";
-  return <button type="button" onClick={onClick} className={`flex min-w-0 items-center gap-2 rounded-2xl p-2 text-left transition active:scale-[0.98] ${isBetter ? "bg-[#f4fbf6]" : "bg-[#f7f3eb]"}`}><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className={`text-[10px] font-medium uppercase tracking-[0.08em] ${isBetter ? "text-emerald-700/70" : "text-neutral-400"}`}>{label}</div><div className="mt-1 line-clamp-2 text-xs font-semibold leading-tight text-neutral-950">{product.name}</div><div className="mt-0.5 truncate text-[11px] font-medium text-neutral-500">{product.brand}</div></div><CompactScoreCircle product={product} /></button>;
+  return <button type="button" onClick={onClick} className={`flex min-w-0 items-center gap-3 rounded-2xl p-3 text-left transition active:scale-[0.98] ${isBetter ? "bg-[#f4fbf6]" : "bg-[#f7f3eb]"}`}><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className={`text-[10px] font-medium uppercase tracking-[0.08em] ${isBetter ? "text-emerald-700/70" : "text-neutral-400"}`}>{label}</div><div className="mt-1 line-clamp-2 text-sm font-semibold leading-tight text-neutral-950">{product.name}</div><div className="mt-0.5 line-clamp-1 text-xs font-medium leading-tight text-neutral-500">{product.brand}</div></div><CompactScoreCircle product={product} /></button>;
 }
 
 function BetterSwapHighlight({ swapFrom, swapTo, openResult }) {
   if (!swapFrom || !swapTo) return null;
-  return <Card><div className="p-4"><SocialHighlightHeader title="Better swap spotted" copy="Same product type, cleaner-rated option" /><div className="grid grid-cols-[minmax(0,1fr)_24px_minmax(0,1fr)] items-center gap-2"><SwapProductTile product={swapFrom} label="From" tone="from" onClick={() => openResult(swapFrom)} /><div className="flex items-center justify-center text-xl font-semibold text-neutral-400">→</div><SwapProductTile product={swapTo} label="To" tone="better" onClick={() => openResult(swapTo)} /></div></div></Card>;
+  return <Card><div className="p-4"><SocialHighlightHeader title="Better swap spotted" copy="Same product type, cleaner-rated option" /><div className="space-y-2"><SwapProductTile product={swapFrom} label="From" tone="from" onClick={() => openResult(swapFrom)} /><div className="flex h-5 items-center justify-center text-lg font-semibold text-neutral-400">↓</div><SwapProductTile product={swapTo} label="To" tone="better" onClick={() => openResult(swapTo)} /></div></div></Card>;
 }
 
 function SocialScreen({ products, openResult, openNotifications, openUserProfile, savedProductIds = [], toggleFavorite, unreadNotifications = 0 }) {
