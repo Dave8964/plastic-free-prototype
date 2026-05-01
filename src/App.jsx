@@ -1851,12 +1851,14 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
             const meta = isAttachedLiner ? attachedLinerRecyclabilityMeta() : useLocation ? localizedRecyclabilityMeta(status) : recyclabilityMeta(status);
             const ruleLabel = isAttachedLiner ? getAttachedLinerRecyclingLabel(part) : useLocation ? rule.label : part.plastic?.code !== "NONE" ? part.plastic?.code : part.material?.name;
             return (
-              <div key={part.id} className="flex items-center justify-between gap-3 rounded-2xl bg-[#f7f3eb] p-3">
+              <div key={part.id} className="rounded-2xl bg-[#f7f3eb] p-3">
                 <div className="min-w-0">
-                  <div className="font-medium text-neutral-950">{part.displayName}</div>
-                  <div className="text-sm text-neutral-500">{ruleLabel}</div>
+                  <div className="break-words text-[15px] font-semibold leading-snug text-neutral-950">{part.displayName}</div>
+                  <div className="mt-1 break-words text-sm leading-snug text-neutral-500">{ruleLabel}</div>
                 </div>
-                <div className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${meta.bg} ${meta.tone}`}>{meta.title}</div>
+                <div className={`mt-3 inline-flex max-w-full items-center rounded-full px-3 py-1 text-xs font-medium leading-tight ${meta.bg} ${meta.tone}`}>
+                  {meta.title}
+                </div>
               </div>
             );
           })}

@@ -5,7 +5,7 @@ export const plasticListProducts = [
   {
     "id": "plasticlist_distilled_water_from_infinity_enteral_pump_delivery_set_by_moog_",
     "name": "Distilled Water from Infinity Enteral Pump Delivery Set by Moog (First Run)",
-    "brand": "Distilled Water",
+    "brand": "Moog",
     "categoryId": "cat_food_drink",
     "imageUrl": "https://www.plasticlist.org/images/products/0460_0461.jpg",
     "country": "US",
@@ -21,7 +21,7 @@ export const plasticListProducts = [
   {
     "id": "plasticlist_distilled_water_from_infinity_enteral_pump_delivery_set_by_moog__461",
     "name": "Distilled Water from Infinity Enteral Pump Delivery Set by Moog (Second Run)",
-    "brand": "Distilled Water",
+    "brand": "Moog",
     "categoryId": "cat_food_drink",
     "imageUrl": "https://www.plasticlist.org/images/products/0460_0461.jpg",
     "country": "US",
