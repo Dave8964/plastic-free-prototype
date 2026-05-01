@@ -98,6 +98,7 @@ const db = {
     { id: "cat_food_drink", name: "Food and drink", baseScore: 45 },
     { id: "cat_cleaning", name: "Household cleaning", baseScore: 80 },
     { id: "cat_hygiene", name: "Feminine hygiene", baseScore: 70 },
+    { id: "cat_sexual_health", name: "Sexual health", baseScore: 65 },
     { id: "cat_plastic_free", name: "Plastic-free / no packaging", baseScore: 100 },
     { id: "cat_health", name: "Health & supplements", baseScore: 55 },
     { id: "cat_receipts", name: "Receipts & paper contact", baseScore: 35 },
@@ -109,6 +110,8 @@ const db = {
     { id: "ldpe4", code: "LDPE-4", name: "Low-density polyethylene", recyclability: "limited", municipal: { Toronto: "limited", Vancouver: "limited", Peel: "none" } },
     { id: "pva", code: "PVA-PVOH", name: "Polyvinyl alcohol", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
     { id: "unknown_plastic", code: "UNKNOWN", name: "Unknown plastic", recyclability: "unknown", municipal: { Toronto: "unknown", Vancouver: "unknown", Peel: "unknown" } },
+    { id: "latex_rubber", code: "LATEX", name: "Standard rubber latex", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
+    { id: "synthetic_condom", code: "SYNTHETIC", name: "Polyurethane / polyisoprene / nitrile", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
     { id: "none", code: "NONE", name: "No plastic detected", recyclability: "not_applicable", municipal: { Toronto: "not_applicable", Vancouver: "not_applicable", Peel: "not_applicable" } },
   ],
   materials: [
@@ -117,6 +120,9 @@ const db = {
     { id: "paper", name: "Uncoated paper", recyclability: "widely" },
     { id: "metal", name: "Metal", recyclability: "widely" },
     { id: "mixed", name: "Mixed multilayer material", recyclability: "limited" },
+    { id: "rubber_latex", name: "Rubber latex", recyclability: "none" },
+    { id: "synthetic_condom_material", name: "Synthetic non-latex material", recyclability: "none" },
+    { id: "natural_membrane", name: "Natural membrane", recyclability: "not_applicable" },
     { id: "liner_epoxy_bpa", name: "BPA epoxy can liner", recyclability: "limited", linerRisk: "high", linerImpact: -22, linerLabel: "BPA epoxy liner", linerSummary: "Older or some imported cans may use BPA-based epoxy. Treat as higher concern, especially with food contact." },
     { id: "liner_pvc", name: "PVC / vinyl organosol can liner", recyclability: "limited", linerRisk: "high", linerImpact: -22, linerLabel: "PVC/vinyl liner", linerSummary: "PVC and vinyl organosol liners can raise chemical migration concerns and should score aggressively." },
     { id: "liner_bpa_free_epoxy", name: "BPA-free epoxy / BPANI liner", recyclability: "limited", linerRisk: "medium", linerImpact: -8, linerLabel: "BPA-free epoxy liner", linerSummary: "BPA-free or BPANI linings are an improvement, but still use synthetic food-contact resins." },
@@ -133,6 +139,7 @@ const db = {
     { id: "heat", name: "Manufacturing heat exposure", penalty: -25, summary: "Heat during processing, filling, storage, or normal product use can increase plastic leaching risk." },
     { id: "skin", name: "Skin contact", penalty: -10, summary: "Plastic in skin-contact products may transfer microplastics." },
     { id: "prolonged_skin", name: "Prolonged skin contact", penalty: -20, summary: "Extended skin exposure increases absorption risk." },
+    { id: "sti_limitation", name: "STI protection limitation", penalty: -10, summary: "Natural membrane condoms can reduce pregnancy risk, but are not recommended for HIV/STI prevention because small pores can allow viruses through." },
     { id: "reuse", name: "Repeated use or friction", penalty: -10, summary: "Repeated use increases microplastic shedding." },
     { id: "internal", name: "Internal plastic packaging", penalty: -18, summary: "Hidden plastics often go unnoticed but increase exposure." },
     { id: "hot_food", name: "Hot food contact", penalty: -30, summary: "The food itself is hot while touching plastic or a can liner, which is a higher-contact exposure scenario." },
@@ -146,6 +153,7 @@ const db = {
     { id: "source_pva", title: "Water-soluble polymer films in detergent pods", organization: "Material notes", credibility: "Medium", summary: "Many dishwasher and laundry pods use water-soluble PVA/PVOH film, a synthetic polymer rather than gelatin." },
     { id: "source_canned_soup_bpa", title: "Canned Soup Consumption and Urinary Bisphenol A", organization: "PubMed Central / JAMA", credibility: "High", summary: "A randomized crossover study found substantially higher urinary BPA after participants consumed canned soup daily compared with fresh soup, supporting added caution for heated liquid foods in lined cans." },
     { id: "source_plasticlist", title: "Data on Plastic Chemicals in Bay Area Foods", organization: "PlasticList", credibility: "High", summary: "PlasticList tested Bay Area food samples for plastic-related chemicals including phthalates and bisphenols. Results are sample-based and may vary by batch, location, and date.", license: "CC BY 4.0", url: "https://www.plasticlist.org/", accessDate: "Jan 09, 2025" },
+    { id: "source_cdc_condoms", title: "Condom Use and HIV/STI Prevention", organization: "CDC", credibility: "High", summary: "CDC guidance supports latex condoms for HIV prevention, notes synthetic non-latex options for people with latex allergies, and warns that natural membrane condoms are not recommended for HIV/STI prevention." },
   ],
   products: [
     { id: "old_spice", name: "Pure Sport Deodorant", brand: "Old Spice", categoryId: "cat_personal", imageUrl: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Medium", verification: "inferred" },
@@ -157,6 +165,9 @@ const db = {
     { id: "paper_soap", name: "Paper-Wrapped Bar Soap", brand: "Local Maker", categoryId: "cat_personal", productType: "bar_soap", imageUrl: "https://images.unsplash.com/photo-1607006483224-21d4b8bc8bd7?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", scoringNote: "Uncoated paper has minimal impact but still involves packaging and processing. Slight deduction versus true zero-packaging soap." },
     { id: "campbells_soup", name: "Tomato Soup", brand: "Campbell’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Medium", verification: "inferred" },
     { id: "hunts_tomato_paste", name: "Tomato Paste", brand: "Hunt’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1584269600519-1123c7b0e6f6?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", scoreOverride: 82, scoringNote: "Packaging label confirms a non-BPA liner and recyclable metal can. This earns a strong mainstream score, with a small caution because acidic tomato paste remains in contact with a synthetic can lining." },
+    { id: "safechoice_latex_condoms", name: "Classic Latex Condoms", brand: "SafeChoice", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Low", verification: "inferred", scoreOverride: 18, scoringNote: "Fake starter product. Latex is modeled as the plastic-exposure baseline for this category, while still being a standard STI-prevention material." },
+    { id: "clearfit_nonlatex_condoms", name: "Non-Latex Condoms", brand: "ClearFit", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 46, scoringNote: "Fake starter product. Synthetic non-latex materials are modeled as a better option for latex allergies and lower concern than standard latex in this app's plastic-exposure rubric." },
+    { id: "heritage_natural_skin_condoms", name: "Natural Skin Condoms", brand: "Heritage", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 84, scoringNote: "Fake starter product. Scores best for plastic exposure, but natural membrane condoms are not recommended for HIV/STI prevention." },
     ...normalizedPlasticListProducts,
   ],
   productParts: [
@@ -177,6 +188,9 @@ const db = {
     { id: "soup_liner", productId: "campbells_soup", partType: "liner", displayName: "Can liner", materialId: "liner_unknown", plasticTypeId: "unknown_plastic", baseImpact: -8, materialImpact: 0, linerType: "unknown", notes: "Soup cans commonly use a protective internal liner. Unknown modern liners are scored as moderate concern, then soup receives extra risk from heat, acidity, liquid contact, and long storage." },
     { id: "hunts_can", productId: "hunts_tomato_paste", partType: "main_container", displayName: "Metal can", materialId: "metal", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, recyclingClaim: "label_confirmed", notes: "The label identifies this as a recyclable metal can." },
     { id: "hunts_liner", productId: "hunts_tomato_paste", partType: "liner", displayName: "Can liner", materialId: "liner_bpa_free_epoxy", plasticTypeId: "unknown_plastic", baseImpact: 0, materialImpact: 0, linerType: "bpa_free_confirmed", labelClaim: "NON BPA Liner", notes: "The label confirms a non-BPA liner. This reduces BPA concern, but the lining is still a synthetic food-contact coating attached to the can." },
+    { id: "safechoice_latex_condom", productId: "safechoice_latex_condoms", partType: "product_component", displayName: "Latex condom", materialId: "rubber_latex", plasticTypeId: "latex_rubber", baseImpact: -18, materialImpact: -20, notes: "Standard rubber latex condom. Modeled as the highest plastic-exposure concern in this starter condom set, while still carrying the standard STI-prevention note from public-health guidance." },
+    { id: "clearfit_synthetic_condom", productId: "clearfit_nonlatex_condoms", partType: "product_component", displayName: "Synthetic non-latex condom", materialId: "synthetic_condom_material", plasticTypeId: "synthetic_condom", baseImpact: -10, materialImpact: -12, notes: "Polyurethane, polyisoprene, or nitrile style condom. Modeled as a better non-latex option for allergy use, but still a synthetic product in direct body contact." },
+    { id: "heritage_natural_membrane_condom", productId: "heritage_natural_skin_condoms", partType: "product_component", displayName: "Natural membrane condom", materialId: "natural_membrane", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Natural skin or lambskin-style membrane. Lower plastic exposure, but not recommended for HIV/STI prevention because small pores can allow viruses through." },
     ...plasticListProductParts,
   ],
   productContexts: [
@@ -199,6 +213,9 @@ const db = {
     { id: "ctx_hunts_food", productId: "hunts_tomato_paste", partId: "hunts_liner", contextId: "food_contact" },
     { id: "ctx_hunts_acid", productId: "hunts_tomato_paste", partId: "hunts_liner", contextId: "acidic" },
     { id: "ctx_hunts_storage", productId: "hunts_tomato_paste", partId: "hunts_liner", contextId: "long_storage" },
+    { id: "ctx_safechoice_skin", productId: "safechoice_latex_condoms", partId: "safechoice_latex_condom", contextId: "prolonged_skin" },
+    { id: "ctx_clearfit_skin", productId: "clearfit_nonlatex_condoms", partId: "clearfit_synthetic_condom", contextId: "prolonged_skin" },
+    { id: "ctx_heritage_sti", productId: "heritage_natural_skin_condoms", partId: "heritage_natural_membrane_condom", contextId: "sti_limitation" },
     ...plasticListProductContexts,
   ],
   sourceLinks: [
@@ -208,6 +225,10 @@ const db = {
     { sourceId: "source_fda", entityType: "context", entityId: "drink_contact" },
     { sourceId: "source_pva", entityType: "part", entityId: "dish_podfilm" },
     { sourceId: "source_pva", entityType: "plastic_type", entityId: "pva" },
+    { sourceId: "source_cdc_condoms", entityType: "part", entityId: "safechoice_latex_condom" },
+    { sourceId: "source_cdc_condoms", entityType: "part", entityId: "clearfit_synthetic_condom" },
+    { sourceId: "source_cdc_condoms", entityType: "part", entityId: "heritage_natural_membrane_condom" },
+    { sourceId: "source_cdc_condoms", entityType: "context", entityId: "sti_limitation" },
   ],
   plasticListEvidence,
   users: [
@@ -752,12 +773,12 @@ function hydrateProduct(product) {
   const recyclabilityPenalty = recyclabilityStatus === "widely" ? 8 : recyclabilityStatus === "limited" ? 28 : recyclabilityStatus === "none" ? 55 : 40;
   const splitScores = { health: clampScore(100 - healthRiskPenalty), exposure: clampScore(100 - plasticExposurePenalty), recyclability: clampScore(100 - recyclabilityPenalty) };
   const riskFactors = [
-    ...effectiveProductContexts.filter((item) => ["heat", "hot_food", "heat_sensitive", "acidic", "fatty", "food_contact", "drink_contact", "skin", "prolonged_skin", "internal", "recycled_plastic", "long_storage"].includes(item.contextId)).map((item) => item.context),
+    ...effectiveProductContexts.filter((item) => ["heat", "hot_food", "heat_sensitive", "acidic", "fatty", "food_contact", "drink_contact", "skin", "prolonged_skin", "sti_limitation", "internal", "recycled_plastic", "long_storage"].includes(item.contextId)).map((item) => item.context),
     ...heatFlags.map((flag) => ({ id: flag.id, name: flag.label, penalty: flag.penalty, summary: flag.summary })),
     ...(extraPenalty < 0 ? [{ id: "category_risk", name: "High-risk product type", penalty: extraPenalty, summary: "This category is scored more aggressively because heat, acidity, ingestion, skin contact, or repeated use can increase plastic exposure." }] : [])
   ];
   const uniqueRiskFactors = Array.from(new Map(riskFactors.map((factor) => [factor.id, factor])).values());
-  const alternatives = product.categoryId === "cat_food_drink" ? ["Choose glass-packaged alternatives when possible.", "Look for 100% bisphenol-free or BPA Non-Intent cans.", "Filter tap water instead of buying bottled water."] : product.categoryId === "cat_cleaning" ? ["Choose loose powder or tablet formats without dissolvable film.", "Use cardboard refills or concentrated cleaners in glass.", "Avoid plastic sponges; try natural loofah, cellulose, or dish cloths."] : product.categoryId === "cat_personal" || product.categoryId === "cat_hygiene" ? ["Look for paper, glass, metal, or refillable packaging.", "Avoid prolonged skin-contact plastics where possible.", "Choose plastic-free applicators or package-free options."] : ["Choose unpackaged, paper, glass, ceramic, stainless steel, cast iron, wood, or bamboo alternatives.", "Avoid hot food in plastic or plastic-lined containers.", "Have receipts emailed instead of taking thermal paper receipts."];
+  const alternatives = product.categoryId === "cat_food_drink" ? ["Choose glass-packaged alternatives when possible.", "Look for 100% bisphenol-free or BPA Non-Intent cans.", "Filter tap water instead of buying bottled water."] : product.categoryId === "cat_cleaning" ? ["Choose loose powder or tablet formats without dissolvable film.", "Use cardboard refills or concentrated cleaners in glass.", "Avoid plastic sponges; try natural loofah, cellulose, or dish cloths."] : product.categoryId === "cat_sexual_health" ? ["For STI prevention, prioritize latex or FDA-cleared synthetic condoms over natural membrane options.", "For latex allergies, compare non-latex synthetic options.", "Treat natural skin options as lower-plastic, not as the best health-protection choice."] : product.categoryId === "cat_personal" || product.categoryId === "cat_hygiene" ? ["Look for paper, glass, metal, or refillable packaging.", "Avoid prolonged skin-contact plastics where possible.", "Choose plastic-free applicators or package-free options."] : ["Choose unpackaged, paper, glass, ceramic, stainless steel, cast iron, wood, or bamboo alternatives.", "Avoid hot food in plastic or plastic-lined containers.", "Have receipts emailed instead of taking thermal paper receipts."];
   const theme = getScoreTheme(score);
   const hasCanLiner = parts.some((part) => part.partType === "liner" && (part.material?.linerRisk || part.materialId === "mixed" || part.plastic?.code === "UNKNOWN"));
   const hotCannedFoodTerms = ["soup", "broth", "stew", "chili", "sauce", "gravy"];
@@ -1238,7 +1259,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
   const [activeTags, setActiveTags] = useState([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchInputRef = useRef(null);
-  const tags = ["Personal care", "Food", "Cleaning", "Hidden plastic", "Available in Canada", "Microwave safe", "Feminine hygiene", "Baby", "Kitchen", "Clothing", "Teas", "Sunscreen"];
+  const tags = ["Personal care", "Food", "Cleaning", "Sexual health", "Hidden plastic", "Available in Canada", "Microwave safe", "Feminine hygiene", "Baby", "Kitchen", "Clothing", "Teas", "Sunscreen"];
   const trendingProducts = getTrendingProducts(products);
   const q = query.trim().toLowerCase();
   const toggleTag = (tag) => setActiveTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
@@ -1250,6 +1271,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
       if (tag === "Personal care") return product.category?.name === "Personal care";
       if (tag === "Food") return product.category?.name === "Food and drink";
       if (tag === "Cleaning") return product.category?.name === "Household cleaning";
+      if (tag === "Sexual health") return product.category?.name === "Sexual health";
       if (tag === "Feminine hygiene") return product.category?.name === "Feminine hygiene";
       if (tag === "Hidden plastic") return product.parts.some((part) => part.partType === "inner_packaging" || part.partType === "liner");
       return true;
@@ -1794,6 +1816,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
       "Hot canned liquid": "hot liquid",
       "Skin contact": "skin contact",
       "Prolonged skin contact": "prolonged skin contact",
+      "STI protection limitation": "STI protection limits",
       "Internal plastic packaging": "internal plastic",
       "Recycled plastic": "recycled plastic",
       "Long storage contact": "long storage",
