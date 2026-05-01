@@ -40,12 +40,12 @@ const db = {
     { id: "drink_contact", name: "Drink contact", penalty: -15, summary: "Plastic or unknown material is in direct contact with a beverage." },
     { id: "acidic", name: "Acidic contents", penalty: -15, summary: "Acidic foods increase chemical leaching from plastics." },
     { id: "fatty", name: "Fatty or oily contents", penalty: -12, summary: "Fatty foods increase absorption of plastic-related chemicals." },
-    { id: "heat", name: "Heat exposure", penalty: -25, summary: "Heat significantly increases plastic leaching risk." },
+    { id: "heat", name: "Manufacturing heat exposure", penalty: -25, summary: "Heat during processing, filling, storage, or normal product use can increase plastic leaching risk." },
     { id: "skin", name: "Skin contact", penalty: -10, summary: "Plastic in skin-contact products may transfer microplastics." },
     { id: "prolonged_skin", name: "Prolonged skin contact", penalty: -20, summary: "Extended skin exposure increases absorption risk." },
     { id: "reuse", name: "Repeated use or friction", penalty: -10, summary: "Repeated use increases microplastic shedding." },
     { id: "internal", name: "Internal plastic packaging", penalty: -18, summary: "Hidden plastics often go unnoticed but increase exposure." },
-    { id: "hot_food", name: "Hot food exposure", penalty: -30, summary: "Hot food in plastic or lined containers is high risk." },
+    { id: "hot_food", name: "Hot food contact", penalty: -30, summary: "The food itself is hot while touching plastic or a can liner, which is a higher-contact exposure scenario." },
     { id: "recycled_plastic", name: "Recycled plastic", penalty: -20, summary: "Recycled plastics may contain contaminants like flame retardants." },
     { id: "long_storage", name: "Long storage contact", penalty: -8, summary: "Long shelf-life contact with liners or plastic packaging can increase concern over time." },
     { id: "heat_sensitive", name: "Heat-sensitive product", penalty: -20, summary: "This product type is often exposed to heat, hot liquids, or hot food, which increases leaching concern." }
@@ -671,7 +671,7 @@ function hydrateProduct(product) {
   const theme = getScoreTheme(score);
   const hasCanLiner = parts.some((part) => part.partType === "liner" && (part.material?.linerRisk || part.materialId === "mixed" || part.plastic?.code === "UNKNOWN"));
   const hotCannedFoodTerms = ["soup", "broth", "stew", "chili", "sauce", "gravy"];
-  const hasHotCannedFoodSignal = hotCannedFoodTerms.some((term) => name.includes(term)) || uniqueRiskFactors.some((factor) => ["Hot food exposure", "Hot canned liquid"].includes(factor.name));
+  const hasHotCannedFoodSignal = hotCannedFoodTerms.some((term) => name.includes(term)) || uniqueRiskFactors.some((factor) => ["hot_food", "heat_soup"].includes(factor.id));
   const hasHighRiskCanScenario = hasCanLiner && hasHotCannedFoodSignal;
   const dynamicSources = hasHighRiskCanScenario ? [{ sourceId: "source_canned_soup_bpa", source: getById("sources", "source_canned_soup_bpa"), entityType: "dynamic", entityId: product.id }] : [];
   const evidenceSources = plasticListEvidence.map((item) => ({ sourceId: item.sourceId, source: item.source, entityType: "plasticlist", entityId: item.id }));
@@ -1575,7 +1575,9 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
       "Acidic contents": "acidic contents",
       "Fatty or oily contents": "fatty contents",
       "Heat exposure": "heat",
+      "Manufacturing heat exposure": "manufacturing heat",
       "Hot food exposure": "hot food",
+      "Hot food contact": "hot food contact",
       "Hot canned liquid": "hot liquid",
       "Skin contact": "skin contact",
       "Prolonged skin contact": "prolonged skin contact",
@@ -1639,32 +1641,32 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
       <Header title="Product score" right={<BackButton onClick={close} />} />
 
       <Card>
-        <div className="p-5 text-center">
-          <div className="relative mx-auto flex w-56 items-start justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHapticFeedback();
-                if (!isFavorite) onFavoriteAdded?.();
-                toggleFavorite?.(product.id);
-              }}
-              className={`absolute left-0 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition active:scale-95 ${isFavorite ? "text-red-600" : "text-neutral-950"}`}
-              aria-label={isFavorite ? `Remove from ${localeCopy.favoritesLower}` : `Add to ${localeCopy.favoritesLower}`}
-            >
-              <HeartIcon filled={isFavorite} />
-            </button>
+        <div className="relative p-5 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              if (!isFavorite) onFavoriteAdded?.();
+              toggleFavorite?.(product.id);
+            }}
+            className={`absolute left-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-sm ring-1 ring-black/5 backdrop-blur transition active:scale-95 ${isFavorite ? "text-red-600" : "text-neutral-950"}`}
+            aria-label={isFavorite ? `Remove from ${localeCopy.favoritesLower}` : `Add to ${localeCopy.favoritesLower}`}
+          >
+            <HeartIcon filled={isFavorite} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              handleNativeShare();
+            }}
+            className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-neutral-950 shadow-sm ring-1 ring-black/5 backdrop-blur transition active:scale-95"
+            aria-label="Share product"
+          >
+            <AppleShareIcon />
+          </button>
+          <div className="mx-auto flex items-start justify-center">
             <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" />
-            <button
-              type="button"
-              onClick={() => {
-                triggerHapticFeedback();
-                handleNativeShare();
-              }}
-              className="absolute right-0 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow-sm backdrop-blur transition active:scale-95"
-              aria-label="Share product"
-            >
-              <AppleShareIcon />
-            </button>
           </div>
 
           <div className="mt-5 flex justify-center">
@@ -1744,7 +1746,7 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
                 <p className="mt-1 text-sm leading-5 text-red-800">{harshReason}</p>
                 {product.hasHighRiskCanScenario && (
                   <p className="mt-2 rounded-2xl bg-white p-3 text-sm leading-5 text-red-800">
-                    A PubMed Central / JAMA study found sharply higher urinary BPA after canned soup consumption compared with fresh soup, so hot liquid foods in lined cans receive a stronger warning.
+                    This warning is about the manufacturing process: soup is typically heated before or during can filling, so hot liquid can sit against the can liner before the product ever reaches your kitchen. It is not saying you are heating the soup in the can. A PubMed Central / JAMA study found higher urinary BPA after canned soup consumption compared with fresh soup, so hot filled liquid foods in lined cans receive a stronger warning.
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -1862,6 +1864,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [viewUser, setViewUser] = useState(null);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [badgeToast, setBadgeToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+  const contentScrollRef = useRef(null);
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
@@ -1928,8 +1932,9 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const showToast = (message, duration = 2500) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setBadgeToast(message);
-    setTimeout(() => setBadgeToast(null), duration);
+    toastTimeoutRef.current = setTimeout(() => setBadgeToast(null), duration);
   };
 
   const showShareBadgeToast = () => {
@@ -1994,8 +1999,27 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (showResult) setShowResult(false);
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(hideNav && !isSignedOut));
+  const activeScreenKey = [
+    tab,
+    viewUser?.id || "",
+    showAddProduct ? "add-product" : "",
+    showPlans ? "plans" : "",
+    showNotifications ? "notifications" : "",
+    shareProduct?.id || "",
+    historyList?.title || "",
+    showDeleteAccount ? "delete-account" : "",
+    showBadges ? "badges" : "",
+    showFavorites ? "favorites" : "",
+    showSettings ? "settings" : "",
+    detail ? `${detail.product.id}-${detail.part.id}` : "",
+    showResult ? result?.id || "result" : ""
+  ].join("|");
 
-  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[calc(100%-32px)] max-w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto" {...appSwipeBackHandlers}><AnimatePresence mode="wait">
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [activeScreenKey]);
+
+  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto" {...appSwipeBackHandlers}><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
