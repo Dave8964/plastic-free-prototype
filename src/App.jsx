@@ -1073,8 +1073,9 @@ function PlasticListEvidenceSummary({ evidence, onOpen }) {
 }
 
 function PlasticListEvidenceDetail({ evidence, product, close }) {
+  const swipeBackHandlers = useSwipeBack(close, true);
   if (!evidence?.length) return null;
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="PlasticList data" right={<BackButton onClick={close} />} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product?.brand}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{product?.name}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Sample-based chemical testing from PlasticList. This is useful supporting evidence, but the main app score and “Where plastic is found” section stay the primary consumer-facing guidance.</p><div className="mt-4 inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white">CC BY 4.0</div></div></Card><div className="mt-5 space-y-3">{evidence.map((item) => { const meta = plasticListToneMeta(item.resultTone); return <div key={item.id} className={`rounded-3xl p-4 shadow-sm ${meta.bg}`}><div className="flex items-start justify-between gap-3"><div><div className={`font-semibold ${meta.text}`}>{item.testedName}</div><div className="mt-1 text-xs text-neutral-500">{item.sampleLocation} • {item.sampleType}</div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{meta.label}</span></div><p className={`mt-3 text-sm leading-5 ${meta.text}`}>{item.summary}</p><div className="mt-3 grid gap-2">{item.chemicals.map((chemical) => <div key={`${item.id}-${chemical.name}`} className="rounded-2xl bg-white/80 p-3 text-sm shadow-sm"><div className="flex items-center justify-between gap-3"><span className="font-semibold text-neutral-950">{chemical.name}</span><span className="text-xs font-medium text-neutral-500">{chemical.concern}</span></div><div className="mt-1 text-xs text-neutral-500">{chemical.family} • {chemical.amount}</div></div>)}</div><div className="mt-3 text-xs leading-5 text-neutral-500">Attribution: PlasticList, Data on Plastic Chemicals in Bay Area Foods, licensed under CC BY 4.0.</div></div>; })}</div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5" {...swipeBackHandlers}><Header title="PlasticList data" right={<BackButton onClick={close} />} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product?.brand}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{product?.name}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Sample-based chemical testing from PlasticList. This is useful supporting evidence, but the main app score and “Where plastic is found” section stay the primary consumer-facing guidance.</p><div className="mt-4 inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white">CC BY 4.0</div></div></Card><div className="mt-5 space-y-3">{evidence.map((item) => { const meta = plasticListToneMeta(item.resultTone); return <div key={item.id} className={`rounded-3xl p-4 shadow-sm ${meta.bg}`}><div className="flex items-start justify-between gap-3"><div><div className={`font-semibold ${meta.text}`}>{item.testedName}</div><div className="mt-1 text-xs text-neutral-500">{item.sampleLocation} • {item.sampleType}</div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{meta.label}</span></div><p className={`mt-3 text-sm leading-5 ${meta.text}`}>{item.summary}</p><div className="mt-3 grid gap-2">{item.chemicals.map((chemical) => <div key={`${item.id}-${chemical.name}`} className="rounded-2xl bg-white/80 p-3 text-sm shadow-sm"><div className="flex items-center justify-between gap-3"><span className="font-semibold text-neutral-950">{chemical.name}</span><span className="text-xs font-medium text-neutral-500">{chemical.concern}</span></div><div className="mt-1 text-xs text-neutral-500">{chemical.family} • {chemical.amount}</div></div>)}</div><div className="mt-3 text-xs leading-5 text-neutral-500">Attribution: PlasticList, Data on Plastic Chemicals in Bay Area Foods, licensed under CC BY 4.0.</div></div>; })}</div></div>;
 }
 
 function UnknownScreen({ close }) {
@@ -1565,21 +1566,16 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
 }
 runTests();
 
-function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess }) {
+function ResultScreen({ product, close, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess }) {
   const [useLocation, setUseLocation] = useState(false);
   const [selectedRecyclingLocation, setSelectedRecyclingLocation] = useState("toronto_on");
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
   const [showScoreDetails, setShowScoreDetails] = useState(false);
-  const [showPlasticListDetails, setShowPlasticListDetails] = useState(false);
   const recyclingLocation = getRecyclingLocation(selectedRecyclingLocation);
   const handleSwipeBack = () => {
     if (showScoreDetails) {
       setShowScoreDetails(false);
-      return;
-    }
-    if (showPlasticListDetails) {
-      setShowPlasticListDetails(false);
       return;
     }
     close();
@@ -1588,7 +1584,6 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
 
   if (!product) return <UnknownScreen close={close} />;
   if (showScoreDetails) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
-  if (showPlasticListDetails) return <div className="min-h-full" {...swipeBackHandlers}><PlasticListEvidenceDetail evidence={product.plasticListEvidence} product={product} close={() => setShowPlasticListDetails(false)} /></div>;
 
   const isFavorite = favoriteIds.includes(product.id);
   const isNearIdealScore = product.score >= 92;
@@ -1813,7 +1808,7 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
         )}
       </div>
 
-      <PlasticListEvidenceSummary evidence={product.plasticListEvidence} onOpen={() => setShowPlasticListDetails(true)} />
+      <PlasticListEvidenceSummary evidence={product.plasticListEvidence} onOpen={() => openPlasticListEvidence(product)} />
 
       <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
         <h3 className="font-semibold text-neutral-950">Better alternative</h3>
@@ -1901,6 +1896,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [tab, setTab] = useState("scan");
   const [result, setResult] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [plasticListDetail, setPlasticListDetail] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
@@ -1938,6 +1934,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const resetOverlays = () => {
     setDetail(null);
+    setPlasticListDetail(null);
     setShowSettings(false);
     setShowFavorites(false);
     setShowDeleteAccount(false);
@@ -1970,6 +1967,17 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const closePartDetail = () => {
     shouldRestoreProductScrollRef.current = true;
     setDetail(null);
+  };
+
+  const openPlasticListEvidence = (product) => {
+    productScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+    shouldRestoreProductScrollRef.current = false;
+    setPlasticListDetail({ product });
+  };
+
+  const closePlasticListEvidence = () => {
+    shouldRestoreProductScrollRef.current = true;
+    setPlasticListDetail(null);
   };
 
   const setTabSafe = (nextTab) => {
@@ -2022,7 +2030,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const scannedProducts = db.scans.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
   const searchedProducts = products.filter((product) => !db.scans.some((scan) => scan.productId === product.id));
-  const hideNav = viewUser || showResult || detail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
+  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
   const goBack = () => {
     if (viewUser) {
       setViewUser(null);
@@ -2066,6 +2074,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }
     if (detail) {
       setDetail(null);
+      return;
+    }
+    if (plasticListDetail) {
+      closePlasticListEvidence();
       return;
     }
     if (showResult) setShowResult(false);
@@ -2136,9 +2148,13 @@ export default function PlasticFreeScannerDatabasePrototype() {
   <motion.div key="detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <DetailScreen product={detail.product} part={detail.part} close={closePartDetail} />
   </motion.div>
+) : plasticListDetail ? (
+  <motion.div key="plastic-list-detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
+    <PlasticListEvidenceDetail evidence={plasticListDetail.product.plasticListEvidence} product={plasticListDetail.product} close={closePlasticListEvidence} />
+  </motion.div>
 ) : showResult ? (
   <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
-    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} />
+    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
