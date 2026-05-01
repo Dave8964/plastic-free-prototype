@@ -2,6 +2,96 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
+const plasticListBrandAliases = {
+  "Boudin Sourdough": "Boudin",
+  "Tartine Sourdough": "Tartine",
+  "Haribo Goldbears": "Haribo",
+  "M&M's Peanut": "M&M's",
+  "Sour Patch": "Sour Patch Kids",
+  "Kelloggs Froot": "Kellogg's",
+  "Ghirardelli Intense": "Ghirardelli",
+  "Ghirardelli Sweet": "Ghirardelli",
+  "Nespresso Medium": "Nespresso",
+  "Philz Medium": "Philz",
+  "Tartine Medium": "Tartine",
+  "Verve Medium": "Verve",
+  "Clover Organic": "Clover",
+  "Clover Whole": "Clover",
+  "Good": "Good & Gather",
+  "Raw Cow": "Raw Cow Milk",
+  "Oatly Oatmilk": "Oatly",
+  "Gatorade Thirst": "Gatorade",
+  "Celsius Sparkling": "Celsius",
+  "Guayaki Organic": "Guayaki",
+  "Chipotle Burrito": "Chipotle",
+  "In-n-Out Cheeseburger": "In-N-Out",
+  "In-n-Out Vanilla": "In-N-Out",
+  "Subway Chocolate": "Subway",
+  "Subway Sub": "Subway",
+  "Wendy's Chocolate": "Wendy's",
+  "Wendy's Crispy": "Wendy's",
+  "Wendy's Dave's": "Wendy's",
+  "Ben & Jerry": "Ben & Jerry's",
+  "Impossible Impossible": "Impossible",
+  "Ricola Honey": "Ricola",
+  "Tylenol Acetaminophen": "Tylenol",
+  "Colgate Cavity": "Colgate",
+  "Colgate Post-Brush": "Colgate",
+  "Colgate Pre-Brush": "Colgate",
+  "Amy's Black": "Amy's",
+  "Kraft Mac": "Kraft",
+  "Sweetgreen Chicken": "Sweetgreen",
+  "Trader Joe": "Trader Joe's",
+  "Driscoll's Non-Organic": "Driscoll's",
+  "Fairlife Core": "Fairlife",
+  "KIND Dark": "KIND",
+  "Coca-Cola Diet": "Coca-Cola",
+  "Coca-Cola Original": "Coca-Cola",
+  "Coca-Cola Zero": "Coca-Cola",
+  "Thorne Basic": "Thorne",
+  "Thorne Prenatal": "Thorne",
+  "Rishi English": "Rishi",
+  "Tazo Awake": "Tazo",
+  "Smeraldina Still": "Smeraldina",
+  "Brita Filtered": "Brita",
+  "Unfiltered Tap": "Tap Water",
+};
+
+const plasticListBrandStripPrefixes = {
+  "M&M's Peanut": "M&M's",
+  "Kelloggs Froot": "Kelloggs",
+  "In-n-Out Cheeseburger": "In-n-Out",
+  "In-n-Out Vanilla": "In-n-Out",
+  "Ben & Jerry": "Ben & Jerry",
+  "Trader Joe": "Trader Joe",
+};
+
+const plasticListGenericBrands = new Set(["Breast Milk", "Paper Receipt", "Tap Water", "Cane Sugar", "Cocoa Powder", "Cold Tablets", "Cracker", "Milk Chocolate", "Peanut Butter", "Powdered Milk"]);
+
+function stripBrandFromProductName(name, brand) {
+  const normalizedName = name.trim();
+  const normalizedBrand = brand.trim();
+  if (!normalizedName || !normalizedBrand) return normalizedName;
+  const lowerName = normalizedName.toLowerCase();
+  const lowerBrand = normalizedBrand.toLowerCase();
+  if (lowerName === lowerBrand) return normalizedName;
+  if (!lowerName.startsWith(`${lowerBrand} `)) return normalizedName;
+  return normalizedName.slice(normalizedBrand.length).trim().replace(/^[-:]+/, "").trim() || normalizedName;
+}
+
+function normalizePlasticListProduct(product) {
+  const brand = plasticListBrandAliases[product.brand] || product.brand;
+  const stripPrefix = plasticListBrandStripPrefixes[product.brand] || brand;
+  const shouldStripBrand = !plasticListGenericBrands.has(brand);
+  return {
+    ...product,
+    brand,
+    name: shouldStripBrand ? stripBrandFromProductName(product.name, stripPrefix) : product.name,
+  };
+}
+
+const normalizedPlasticListProducts = plasticListProducts.map(normalizePlasticListProduct);
+
 const db = {
   categories: [
     { id: "cat_personal", name: "Personal care", baseScore: 80 },
@@ -67,7 +157,7 @@ const db = {
     { id: "paper_soap", name: "Paper-Wrapped Bar Soap", brand: "Local Maker", categoryId: "cat_personal", productType: "bar_soap", imageUrl: "https://images.unsplash.com/photo-1607006483224-21d4b8bc8bd7?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", scoringNote: "Uncoated paper has minimal impact but still involves packaging and processing. Slight deduction versus true zero-packaging soap." },
     { id: "campbells_soup", name: "Tomato Soup", brand: "Campbell’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Medium", verification: "inferred" },
     { id: "hunts_tomato_paste", name: "Tomato Paste", brand: "Hunt’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1584269600519-1123c7b0e6f6?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", scoreOverride: 82, scoringNote: "Packaging label confirms a non-BPA liner and recyclable metal can. This earns a strong mainstream score, with a small caution because acidic tomato paste remains in contact with a synthetic can lining." },
-    ...plasticListProducts,
+    ...normalizedPlasticListProducts,
   ],
   productParts: [
     { id: "os_container", productId: "old_spice", partType: "main_container", displayName: "Main container", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -10, materialImpact: -5, notes: "Common deodorant casing, likely PP." },
