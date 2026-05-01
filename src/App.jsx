@@ -443,6 +443,19 @@ function getBrowserFallbackRecyclingLocationId() {
   return getRecyclingLocationIdFromTimezone(timeZone);
 }
 
+function getDefaultSpellingLocale() {
+  const timeZone = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
+  const canadaZones = ["America/Toronto", "America/Montreal", "America/Vancouver", "America/Edmonton", "America/Winnipeg", "America/Halifax", "America/Regina"];
+  return canadaZones.includes(timeZone) ? "CA" : "US";
+}
+
+function getLocaleCopy(locale = "CA") {
+  const isCanada = locale === "CA";
+  const favorite = isCanada ? "Favourite" : "Favorite";
+  const favorites = isCanada ? "Favourites" : "Favorites";
+  return { favorite, favorites, favoriteLower: favorite.toLowerCase(), favoritesLower: favorites.toLowerCase() };
+}
+
 function getRecyclabilityKey(part) {
   if (part.partType === "liner") return "liner";
   if (part.plastic && part.plastic.code !== "NONE") return part.plasticTypeId || "unknown_plastic";
@@ -1121,6 +1134,14 @@ function EyeMiniIcon() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
 }
 
+function AppleShareIcon({ size = 22 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V3" /><path d="m7 8 5-5 5 5" /><path d="M6 12v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-7" /></svg>;
+}
+
+function HeartIcon({ filled = false, size = 22 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>;
+}
+
 function SocialProductPreview({ product, onClick }) {
   return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></button>;
 }
@@ -1216,7 +1237,7 @@ function Field({ label, type = "text", placeholder, defaultValue = "" }) {
   return <label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">{label}</span><input type={type} placeholder={placeholder} defaultValue={defaultValue} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label>;
 }
 
-function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProfile }) {
+function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProfile, locale, setLocale, localeCopy }) {
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [shareActivity, setShareActivity] = useState(true);
   const [firstName, setFirstName] = useState(profile.firstName);
@@ -1230,7 +1251,7 @@ function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProf
 
   const updatedButtonClass = "bg-white text-neutral-300 border border-neutral-200 shadow-none hover:bg-white";
 
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Settings" right={<BackButton onClick={close} />} /><div className="space-y-4"><SettingsSection title="Update name"><div className="grid grid-cols-2 gap-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">First</span><input value={firstName} onChange={(event) => { setFirstName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Last</span><input value={lastName} onChange={(event) => { setLastName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ firstName, lastName }); setNameUpdated(true); }} className={`mt-4 w-full ${nameUpdated ? updatedButtonClass : ""}`}>{nameUpdated ? <span className="text-neutral-300">Name updated!</span> : "Update name"}</Button></SettingsSection><SettingsSection title="Update email address"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Email address</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button onClick={() => { updateProfile({ email }); setEmailUpdated(true); }} className={`mt-4 w-full ${emailUpdated ? updatedButtonClass : ""}`}>{emailUpdated ? <span className="text-neutral-300">Email updated!</span> : "Update email"}</Button></SettingsSection><SettingsSection title="Change password"><div className="space-y-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Current password</span><input type="password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter current password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">New password</span><input type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter new password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ password: newPassword }); setPasswordUpdated(true); }} className={`mt-4 w-full ${passwordUpdated ? updatedButtonClass : ""}`}>{passwordUpdated ? <span className="text-neutral-300">Password updated!</span> : "Update password"}</Button></SettingsSection><SettingsSection title="Notifications & Privacy"><div className="mb-4 flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Push notifications</div><p className="mt-1 text-sm text-neutral-500">Get updates about product reviews, comments, and new matches.</p></div><ToggleSwitch checked={notificationsOn} onClick={() => setNotificationsOn(!notificationsOn)} label="Toggle notifications" /></div><div className="flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Share activity</div><p className="mt-1 text-sm text-neutral-500">Show your scans and favorites in your social feed.</p></div><ToggleSwitch checked={shareActivity} onClick={() => setShareActivity(!shareActivity)} label="Toggle share activity" /></div></SettingsSection><Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button><Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Settings" right={<BackButton onClick={close} />} /><div className="space-y-4"><SettingsSection title="Update name"><div className="grid grid-cols-2 gap-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">First</span><input value={firstName} onChange={(event) => { setFirstName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Last</span><input value={lastName} onChange={(event) => { setLastName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ firstName, lastName }); setNameUpdated(true); }} className={`mt-4 w-full ${nameUpdated ? updatedButtonClass : ""}`}>{nameUpdated ? <span className="text-neutral-300">Name updated!</span> : "Update name"}</Button></SettingsSection><SettingsSection title="Update email address"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Email address</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button onClick={() => { updateProfile({ email }); setEmailUpdated(true); }} className={`mt-4 w-full ${emailUpdated ? updatedButtonClass : ""}`}>{emailUpdated ? <span className="text-neutral-300">Email updated!</span> : "Update email"}</Button></SettingsSection><SettingsSection title="Regional spelling"><p className="mb-3 text-sm text-neutral-500">Controls labels like {localeCopy.favorite}/{locale === "CA" ? "Favorite" : "Favourite"} across the app.</p><div className="grid grid-cols-2 rounded-full bg-[#f7f3eb] p-1"><button type="button" onClick={() => setLocale("CA")} className={`rounded-full py-2 text-sm font-semibold ${locale === "CA" ? "bg-neutral-950 text-white" : "text-neutral-500"}`}>Canada</button><button type="button" onClick={() => setLocale("US")} className={`rounded-full py-2 text-sm font-semibold ${locale === "US" ? "bg-neutral-950 text-white" : "text-neutral-500"}`}>USA</button></div></SettingsSection><SettingsSection title="Change password"><div className="space-y-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Current password</span><input type="password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter current password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">New password</span><input type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter new password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ password: newPassword }); setPasswordUpdated(true); }} className={`mt-4 w-full ${passwordUpdated ? updatedButtonClass : ""}`}>{passwordUpdated ? <span className="text-neutral-300">Password updated!</span> : "Update password"}</Button></SettingsSection><SettingsSection title="Notifications & Privacy"><div className="mb-4 flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Push notifications</div><p className="mt-1 text-sm text-neutral-500">Get updates about product reviews, comments, and new matches.</p></div><ToggleSwitch checked={notificationsOn} onClick={() => setNotificationsOn(!notificationsOn)} label="Toggle notifications" /></div><div className="flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Share activity</div><p className="mt-1 text-sm text-neutral-500">Show your scans and {localeCopy.favoritesLower} in your social feed.</p></div><ToggleSwitch checked={shareActivity} onClick={() => setShareActivity(!shareActivity)} label="Toggle share activity" /></div></SettingsSection><Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button><Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button></div></div>;
 }
 
 function SignInScreen({ onSignIn }) {
@@ -1378,19 +1399,19 @@ function BadgesScreen({ badges, highlightBadge, close }) {
   return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badges" right={<BackButton onClick={close} />} /><div className="grid grid-cols-2 gap-3">{badges.map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div>;
 }
 
-function FavoritesScreen({ products, openResult, close, favoriteIds = null }) {
+function FavoritesScreen({ products, openResult, close, favoriteIds = null, localeCopy = getLocaleCopy() }) {
   const groups = getFavoritesByCategory(products, favoriteIds);
   const categories = ["All", ...Object.keys(groups)];
   const [activeCategory, setActiveCategory] = useState("All");
   const visibleProducts = activeCategory === "All" ? Object.values(groups).flat() : groups[activeCategory] || [];
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Favorites" right={<BackButton onClick={close} />} /><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map((category) => <button type="button" key={category} onClick={() => setActiveCategory(category)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm ${activeCategory === category ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{category}</button>)}</div><Card><div className="p-4"><h3 className="mb-3 font-semibold text-neutral-950">{activeCategory === "All" ? "All favorites" : activeCategory}</h3><div className="space-y-2">{visibleProducts.length ? visibleProducts.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="p-5 text-center text-sm text-neutral-500">No favorites yet.</p>}</div></div></Card></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title={localeCopy.favorites} right={<BackButton onClick={close} />} /><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map((category) => <button type="button" key={category} onClick={() => setActiveCategory(category)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm ${activeCategory === category ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{category}</button>)}</div><Card><div className="p-4"><h3 className="mb-3 font-semibold text-neutral-950">{activeCategory === "All" ? `All ${localeCopy.favoritesLower}` : activeCategory}</h3><div className="space-y-2">{visibleProducts.length ? visibleProducts.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="p-5 text-center text-sm text-neutral-500">No {localeCopy.favoritesLower} yet.</p>}</div></div></Card></div>;
 }
 
-function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, profile }) {
+function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, profile, favoriteIds = [], localeCopy = getLocaleCopy() }) {
   const following = db.follows.filter((follow) => follow.followerId === "user_me").length;
   const followers = db.follows.filter((follow) => follow.followedId === "user_me").length + 12;
-  const saved = db.saves.filter((save) => save.userId === "user_me").map((save) => products.find((product) => product.id === save.productId)).filter(Boolean);
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{db.scans.length}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{saved.length}</div><div className="text-xs text-neutral-500">Favorites</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Favorites</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">Favorite products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
+  const saved = favoriteIds.map((productId) => products.find((product) => product.id === productId)).filter(Boolean);
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{db.scans.length}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{saved.length}</div><div className="text-xs text-neutral-500">{localeCopy.favorites}</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
 }
 
 
@@ -1493,7 +1514,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
 }
 runTests();
 
-function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [], toggleFavorite }) {
+function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess }) {
   const [useLocation, setUseLocation] = useState(false);
   const [selectedRecyclingLocation, setSelectedRecyclingLocation] = useState("toronto_on");
   const [locationStatus, setLocationStatus] = useState("idle");
@@ -1524,7 +1545,26 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
   const recyclingSummaryStatuses = recyclingRules.map((rule, index) => isAttachedCanLiner(product.parts[index], product) ? "limited" : rule.status);
   const recyclingStatus = combineRecyclability(recyclingSummaryStatuses);
   const recyclingMeta = productRecyclabilityMeta(recyclingStatus, recyclingSummaryStatuses, useLocation);
-  const countryLabel = { CA: "Canada", US: "United States" }[product.country] || product.country || "Unknown region";
+  const handleNativeShare = async () => {
+    const appName = "PlasticFree";
+    const userName = profile?.firstName || "Someone";
+    const shareText = `${userName} shared ${product.name} from ${appName} for you to check out.`;
+    const shareData = {
+      title: `${product.brand} ${product.name}`,
+      text: shareText,
+      url: `https://plasticfree.app/product/${product.id}`
+    };
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        onShareSuccess?.();
+        return;
+      } catch {
+        return;
+      }
+    }
+    openShare(product);
+  };
   // Build dynamic explanation based on actual risk factors
   const reasonFactors = (product.riskFactors || []).map(f => f.name);
 
@@ -1600,7 +1640,32 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
 
       <Card>
         <div className="p-5 text-center">
-          <ProductImage src={product.imageUrl} alt={product.name} className="mx-auto h-36 w-36 rounded-3xl object-cover" />
+          <div className="relative mx-auto flex w-56 items-start justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHapticFeedback();
+                if (!isFavorite) onFavoriteAdded?.();
+                toggleFavorite?.(product.id);
+              }}
+              className={`absolute left-0 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition active:scale-95 ${isFavorite ? "text-red-600" : "text-neutral-950"}`}
+              aria-label={isFavorite ? `Remove from ${localeCopy.favoritesLower}` : `Add to ${localeCopy.favoritesLower}`}
+            >
+              <HeartIcon filled={isFavorite} />
+            </button>
+            <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" />
+            <button
+              type="button"
+              onClick={() => {
+                triggerHapticFeedback();
+                handleNativeShare();
+              }}
+              className="absolute right-0 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow-sm backdrop-blur transition active:scale-95"
+              aria-label="Share product"
+            >
+              <AppleShareIcon />
+            </button>
+          </div>
 
           <div className="mt-5 flex justify-center">
             <ScoreRing score={product.score} onClick={() => setShowScoreDetails(true)} featured={isNearIdealScore} />
@@ -1634,7 +1699,7 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
           <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{product.name}</h2>
           <p className="text-neutral-500">{product.brand}</p>
           <p className="mt-2 text-xs text-neutral-500">
-            Available in {countryLabel} • {product.category?.name} • {reviewStatusLabel(product.verification)} • {dataQualityLabel(product.confidence)}
+            {product.category?.name} • {reviewStatusLabel(product.verification)} • {dataQualityLabel(product.confidence)}
           </p>
         </div>
       </Card>
@@ -1765,30 +1830,17 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
         </div>
       </div>
 
-      <div className="sticky bottom-3 mt-5 grid grid-cols-2 gap-3">
-        <Button
-          onClick={() => {
-            triggerHapticFeedback();
-            toggleFavorite?.(product.id);
-          }}
-          variant={isFavorite ? "outline" : "solid"}
-          className={isFavorite ? "bg-white text-neutral-400" : ""}
-        >
-          <span className={isFavorite ? "text-neutral-300" : ""}>{isFavorite ? "♡ Added" : "❤ Favorite"}</span>
-        </Button>
-        <Button onClick={() => openShare(product)} variant="outline" className="bg-white">↗ Share</Button>
-      </div>
     </div>
   );
 }
 
-function UserProfileView({ user, products, badges = [], highlightBadge, openResult, close, openFavorites }) {
+function UserProfileView({ user, products, badges = [], highlightBadge, openResult, close, openFavorites, localeCopy = getLocaleCopy() }) {
   const userSaves = db.saves.filter((s) => s.userId === user.id).map((s) => products.find((p) => p.id === s.productId)).filter(Boolean);
   const userScans = db.scans.filter((scan) => scan.userId === user.id).length + (user.id === "user_me" ? 0 : 8);
   const following = db.follows.filter((follow) => follow.followerId === user.id).length + (user.id === "user_me" ? 0 : 2);
   const followers = db.follows.filter((follow) => follow.followedId === user.id).length + (user.id === "user_me" ? 12 : 34);
 
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title={user.displayName} right={<BackButton onClick={close} />} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">{user.avatar}</div><h2 className="text-2xl font-semibold text-neutral-950">{user.displayName}</h2><p className="text-sm text-neutral-500">{user.role}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{userScans}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{userSaves.length}</div><div className="text-xs text-neutral-500">Favorites</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Recent favorites</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{userSaves.length ? userSaves.slice(0, 3).map((p) => <ProductRow key={p.id} product={p} onClick={() => openResult(p)} />) : <p className="text-sm text-neutral-500">No favorites yet.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges earned</h3><span className="text-sm font-medium text-neutral-400">Top 4</span></div><div className="grid grid-cols-2 gap-3">{badges.slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title={user.displayName} right={<BackButton onClick={close} />} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">{user.avatar}</div><h2 className="text-2xl font-semibold text-neutral-950">{user.displayName}</h2><p className="text-sm text-neutral-500">{user.role}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{userScans}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{userSaves.length}</div><div className="text-xs text-neutral-500">{localeCopy.favorites}</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Recent {localeCopy.favoritesLower}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{userSaves.length ? userSaves.slice(0, 3).map((p) => <ProductRow key={p.id} product={p} onClick={() => openResult(p)} />) : <p className="text-sm text-neutral-500">No {localeCopy.favoritesLower} yet.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges earned</h3><span className="text-sm font-medium text-neutral-400">Top 4</span></div><div className="grid grid-cols-2 gap-3">{badges.slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div></div>;
 }
 
 export default function PlasticFreeScannerDatabasePrototype() {
@@ -1814,6 +1866,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
   const [profile, setProfile] = useState({ firstName: "Dave", lastName: "Rusinek", email: "dave@example.com", password: "password123" });
+  const [locale, setLocale] = useState(getDefaultSpellingLocale);
+  const localeCopy = getLocaleCopy(locale);
 
   const updateProfile = (updates) => {
     setProfile((current) => ({ ...current, ...updates }));
@@ -1941,10 +1995,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(hideNav && !isSignedOut));
 
-  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto" {...appSwipeBackHandlers}><AnimatePresence mode="wait">
+  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8">{badgeToast && <div className="fixed left-1/2 top-6 z-50 w-[calc(100%-32px)] max-w-[360px] -translate-x-1/2 rounded-3xl bg-neutral-950 px-4 py-3 text-sm font-medium text-white shadow-2xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></div>}<Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div className="min-h-0 flex-1 overflow-y-auto" {...appSwipeBackHandlers}><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-    <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} favorites`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} />
+    <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
   </motion.div>
 ) : showAddProduct ? (
   <motion.div key="add-product" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
@@ -1976,11 +2030,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showFavorites ? (
   <motion.div key="favorites" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-    <FavoritesScreen products={products} openResult={openResult} close={() => setShowFavorites(false)} favoriteIds={favoriteIds} />
+    <FavoritesScreen products={products} openResult={openResult} close={() => setShowFavorites(false)} favoriteIds={favoriteIds} localeCopy={localeCopy} />
   </motion.div>
 ) : showSettings ? (
   <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-    <SettingsScreen close={() => setShowSettings(false)} onSignOut={signOut} onDeleteAccount={() => { setShowSettings(false); setShowDeleteAccount(true); }} profile={profile} updateProfile={updateProfile} />
+    <SettingsScreen close={() => setShowSettings(false)} onSignOut={signOut} onDeleteAccount={() => { setShowSettings(false); setShowDeleteAccount(true); }} profile={profile} updateProfile={updateProfile} locale={locale} setLocale={setLocale} localeCopy={localeCopy} />
   </motion.div>
 ) : detail ? (
   <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
@@ -1988,7 +2042,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showResult ? (
   <motion.div key="result" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={(product, part) => setDetail({ product, part })} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} />
+    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={(product, part) => setDetail({ product, part })} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
@@ -1996,7 +2050,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => setShowAddProduct(true)} />}
     {tab === "history" && <HistoryScreen products={products} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
-    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} profile={profile} />}
+    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} profile={profile} favoriteIds={favoriteIds} localeCopy={localeCopy} />}
   </motion.div>
 )}
 </AnimatePresence>
