@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
@@ -1128,6 +1128,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
   const [query, setQuery] = useState("");
   const [plasticFreeOnly, setPlasticFreeOnly] = useState(false);
   const [activeTags, setActiveTags] = useState([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchInputRef = useRef(null);
   const tags = ["Personal care", "Food", "Cleaning", "Hidden plastic", "Available in Canada", "Microwave safe", "Feminine hygiene", "Baby", "Kitchen", "Clothing", "Teas", "Sunscreen"];
   const trendingProducts = getTrendingProducts(products);
@@ -1148,7 +1149,8 @@ function SearchScreen({ products, openResult, openAddProduct }) {
     return matchesQuery && passesPlasticFree && passesTags;
   });
   const focusSearch = () => searchInputRef.current?.focus();
-  return <div className="min-h-[690px] px-5 pb-4"><Header title="Search" /><div onClick={focusSearch} onTouchEnd={focusSearch} className="mb-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-sm"><Icon type="search" active={false} size={22} /><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products, brands, or categories" enterKeyHint="search" className="w-full bg-transparent text-base outline-none" /></div><div className="mb-4 flex gap-2 overflow-x-auto pb-1"><FastTapButton onActivate={() => { triggerHapticFeedback(); setPlasticFreeOnly(!plasticFreeOnly); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${plasticFreeOnly ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>Plastic-free only</FastTapButton>{tags.map((tag) => <FastTapButton key={tag} onActivate={() => { triggerHapticFeedback(); toggleTag(tag); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${activeTags.includes(tag) ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{tag}</FastTapButton>)}</div>{trendingProducts.length > 0 && <Card className="mb-4"><div className="p-4"><SocialHighlightHeader title="Trending this week" copy="Most saved in trusted circles" /><div className="flex gap-3 overflow-x-auto pb-1">{trendingProducts.map((product) => <TrendingProductChip key={product.id} product={product} onClick={() => openResult(product)} />)}</div></div></Card>}<div className="space-y-2">{filtered.length ? filtered.map((product, index) => <motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.035 }}><ProductRow product={product} onClick={() => openResult(product)} /></motion.div>) : <div className="mt-20 text-center"><div className="text-xl font-semibold text-neutral-950">No product found</div><p className="mt-2 text-sm text-neutral-500">Add photos and packaging notes to help verify it.</p><Button onClick={openAddProduct} className="mt-5">＋ Add product</Button></div>}</div></div>;
+  const shouldShowTrending = !q && !isSearchFocused;
+  return <div className="min-h-[690px] px-5 pb-4"><Header title="Search" /><div onClick={focusSearch} onTouchEnd={focusSearch} className="mb-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-sm"><Icon type="search" active={false} size={22} /><input ref={searchInputRef} value={query} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} placeholder="Search products, brands, or categories" enterKeyHint="search" className="w-full bg-transparent text-base outline-none" /></div><div className="mb-4 flex gap-2 overflow-x-auto pb-1"><FastTapButton onActivate={() => { triggerHapticFeedback(); setPlasticFreeOnly(!plasticFreeOnly); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${plasticFreeOnly ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>Plastic-free only</FastTapButton>{tags.map((tag) => <FastTapButton key={tag} onActivate={() => { triggerHapticFeedback(); toggleTag(tag); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${activeTags.includes(tag) ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{tag}</FastTapButton>)}</div>{shouldShowTrending && trendingProducts.length > 0 && <Card className="mb-4"><div className="p-4"><SocialHighlightHeader title="Trending this week" copy="Most saved in trusted circles" /><div className="flex gap-3 overflow-x-auto pb-1">{trendingProducts.map((product) => <TrendingProductChip key={product.id} product={product} onClick={() => openResult(product)} />)}</div></div></Card>}<div className="space-y-2">{filtered.length ? filtered.map((product, index) => <motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.035 }}><ProductRow product={product} onClick={() => openResult(product)} /></motion.div>) : <div className="mt-20 text-center"><div className="text-xl font-semibold text-neutral-950">No product found</div><p className="mt-2 text-sm text-neutral-500">Add photos and packaging notes to help verify it.</p><Button onClick={openAddProduct} className="mt-5">＋ Add product</Button></div>}</div></div>;
 }
 
 function AddProductScreen({ close }) {
@@ -1917,6 +1919,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const contentScrollRef = useRef(null);
   const productScrollTopRef = useRef(0);
   const shouldRestoreProductScrollRef = useRef(false);
+  const searchScrollTopRef = useRef(0);
+  const shouldRestoreSearchScrollRef = useRef(false);
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
@@ -1946,6 +1950,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openResult = (product) => {
+    if (tab === "search" && !showResult && !detail) {
+      searchScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+      shouldRestoreSearchScrollRef.current = true;
+    }
     productScrollTopRef.current = 0;
     shouldRestoreProductScrollRef.current = false;
     setResult(product);
@@ -2062,83 +2070,76 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }
     if (showResult) setShowResult(false);
   };
-  const activeScreenKey = [
-    tab,
-    viewUser?.id || "",
-    showAddProduct ? "add-product" : "",
-    showPlans ? "plans" : "",
-    showNotifications ? "notifications" : "",
-    shareProduct?.id || "",
-    historyList?.title || "",
-    showDeleteAccount ? "delete-account" : "",
-    showBadges ? "badges" : "",
-    showFavorites ? "favorites" : "",
-    showSettings ? "settings" : "",
-    detail ? `${detail.product.id}-${detail.part.id}` : "",
-    showResult ? result?.id || "result" : ""
-  ].join("|");
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
-
-  useLayoutEffect(() => {
-    if (shouldRestoreProductScrollRef.current && !detail && showResult) {
+  const scrollIncomingScreen = (screen) => {
+    if (screen === "product" && shouldRestoreProductScrollRef.current) {
       contentScrollRef.current?.scrollTo({ top: productScrollTopRef.current, left: 0, behavior: "auto" });
       shouldRestoreProductScrollRef.current = false;
       return;
     }
+    if (screen === "search" && shouldRestoreSearchScrollRef.current) {
+      contentScrollRef.current?.scrollTo({ top: searchScrollTopRef.current, left: 0, behavior: "auto" });
+      shouldRestoreSearchScrollRef.current = false;
+      return;
+    }
     contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [activeScreenKey, detail, showResult]);
+  };
+  const handleScreenAnimationStart = (screen, animationDefinition) => {
+    if (animationDefinition?.opacity === 0) return;
+    scrollIncomingScreen(screen);
+  };
 
   return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
-  <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
   </motion.div>
 ) : showAddProduct ? (
-  <motion.div key="add-product" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="add-product" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <AddProductScreen close={() => setShowAddProduct(false)} />
   </motion.div>
 ) : showPlans ? (
-  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <PlansScreen close={() => setShowPlans(false)} />
   </motion.div>
 ) : showNotifications ? (
-  <motion.div key="notifications" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="notifications" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <NotificationsScreen close={() => setShowNotifications(false)} />
   </motion.div>
 ) : shareProduct ? (
-  <motion.div key="share" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="share" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <ShareSheet product={shareProduct} close={() => setShareProduct(null)} onShareSuccess={showShareBadgeToast} />
   </motion.div>
 ) : historyList ? (
-  <motion.div key="history-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="history-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <ProductListScreen title={historyList.title} products={historyList.products} openResult={openResult} close={() => setHistoryList(null)} />
   </motion.div>
 ) : showDeleteAccount ? (
-  <motion.div key="delete" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="delete" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <DeleteAccountScreen close={() => setShowDeleteAccount(false)} onConfirmDelete={confirmDeleteAccount} />
   </motion.div>
 ) : showBadges ? (
-  <motion.div key="badges" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="badges" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <BadgesScreen badges={badgeProgress} highlightBadge={highlightBadge} close={() => setShowBadges(false)} />
   </motion.div>
 ) : showFavorites ? (
-  <motion.div key="favorites" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="favorites" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <FavoritesScreen products={products} openResult={openResult} close={() => setShowFavorites(false)} favoriteIds={favoriteIds} localeCopy={localeCopy} />
   </motion.div>
 ) : showSettings ? (
-  <motion.div key="settings" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="settings" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <SettingsScreen close={() => setShowSettings(false)} onSignOut={signOut} onDeleteAccount={() => { setShowSettings(false); setShowDeleteAccount(true); }} profile={profile} updateProfile={updateProfile} locale={locale} setLocale={setLocale} localeCopy={localeCopy} />
   </motion.div>
 ) : detail ? (
-  <motion.div key="detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <DetailScreen product={detail.product} part={detail.part} close={closePartDetail} />
   </motion.div>
 ) : showResult ? (
-  <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
+  <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
     <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} />
   </motion.div>
 ) : (
-  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={pageTransition}>
+  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
     {tab === "scan" && <ScanScreen products={products} openResult={handleScan} />}
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => setShowAddProduct(true)} />}
     {tab === "history" && <HistoryScreen products={products} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
