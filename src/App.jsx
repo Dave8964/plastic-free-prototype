@@ -1181,17 +1181,34 @@ function DetailScreen({ product, part, close }) {
 }
 
 function ScoreBreakdownPanel({ product, close }) {
+  const panelRef = useRef(null);
   const rows = [["Health Risk", product.splitScores.health, "Heat, acidity, ingestion, skin contact, and leaching risk."], ["Plastic Exposure", product.splitScores.exposure, "How much plastic is present and how close it is to the product."], ["Recyclability", product.splitScores.recyclability, "How likely the plastic parts are to be accepted in recycling."]];
 
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      let node = panelRef.current?.parentElement;
+      while (node) {
+        const style = window.getComputedStyle(node);
+        const canScroll = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
+        if (canScroll) {
+          node.scrollTo({ top: 0, left: 0, behavior: "auto" });
+          break;
+        }
+        node = node.parentElement;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   return (
-    <div className="min-h-[690px] overflow-y-auto px-5 pb-5">
+    <div ref={panelRef} className="min-h-[690px] overflow-y-auto px-5 pb-5">
       <Header title="Score details" right={<BackButton onClick={close} />} />
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
         <Card>
           <div className="flex flex-col items-center p-6 text-center">
             <ScoreRing score={product.score} delay={0.1} />
             <motion.h2 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36, duration: 0.28 }} className="mt-5 text-2xl font-semibold tracking-tight text-neutral-950">Overall score</motion.h2>
-            <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44, duration: 0.28 }} className="mt-2 max-w-[280px] text-sm leading-6 text-neutral-500">The main score stays simple. These secondary scores show what is driving it.</motion.p>
+            <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44, duration: 0.28 }} className="mt-2 max-w-[280px] text-sm leading-5 text-neutral-500">The main score stays simple. These show what drives it.</motion.p>
           </div>
         </Card>
       </motion.div>
@@ -1201,7 +1218,7 @@ function ScoreBreakdownPanel({ product, close }) {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 pr-2">
                 <div className="font-semibold text-neutral-950">{label}</div>
-                <p className="relative mt-1 line-clamp-2 text-sm leading-5 text-neutral-500 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-4 after:bg-gradient-to-t after:from-white after:to-transparent after:content-['']">{copy}</p>
+                <p className="mt-1 text-sm leading-5 text-neutral-500">{copy}</p>
               </div>
               <motion.div initial={{ scale: 0.92 }} animate={{ scale: 1 }} transition={{ delay: 0.3 + index * 0.09, type: "spring", stiffness: 220, damping: 16 }} className="ml-2 flex h-14 w-14 shrink-0 translate-y-[2px] items-center justify-center rounded-full bg-[#f7f3eb] text-lg font-bold text-neutral-950">{value}</motion.div>
             </div>
@@ -2248,7 +2265,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
   const productPageTransition = { ...pageTransition, duration: 0.4 };
-  const returnToTabTransition = { ...pageTransition, duration: 0.31 };
+  const returnToTabTransition = { ...pageTransition, duration: 0.24 };
   const scrollIncomingScreen = (screen) => {
     if (screen === "product" && shouldRestoreProductScrollRef.current) {
       contentScrollRef.current?.scrollTo({ top: productScrollTopRef.current, left: 0, behavior: "auto" });
