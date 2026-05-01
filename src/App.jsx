@@ -189,8 +189,14 @@ const db = {
     { id: "hunts_can", productId: "hunts_tomato_paste", partType: "main_container", displayName: "Metal can", materialId: "metal", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, recyclingClaim: "label_confirmed", notes: "The label identifies this as a recyclable metal can." },
     { id: "hunts_liner", productId: "hunts_tomato_paste", partType: "liner", displayName: "Can liner", materialId: "liner_bpa_free_epoxy", plasticTypeId: "unknown_plastic", baseImpact: 0, materialImpact: 0, linerType: "bpa_free_confirmed", labelClaim: "NON BPA Liner", notes: "The label confirms a non-BPA liner. This reduces BPA concern, but the lining is still a synthetic food-contact coating attached to the can." },
     { id: "safechoice_latex_condom", productId: "safechoice_latex_condoms", partType: "product_component", displayName: "Latex condom", materialId: "rubber_latex", plasticTypeId: "latex_rubber", baseImpact: -18, materialImpact: -20, notes: "Standard rubber latex condom. Modeled as the highest plastic-exposure concern in this starter condom set, while still carrying the standard STI-prevention note from public-health guidance." },
+    { id: "safechoice_condom_box", productId: "safechoice_latex_condoms", partType: "outer_packaging", displayName: "Paper box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Outer cardboard box. Recycle only if clean and accepted locally." },
+    { id: "safechoice_condom_wrapper", productId: "safechoice_latex_condoms", partType: "inner_packaging", displayName: "Foil wrapper", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -4, materialImpact: -6, notes: "Individual condom wrapper is usually a foil/plastic laminate and is not the same as the condom itself." },
     { id: "clearfit_synthetic_condom", productId: "clearfit_nonlatex_condoms", partType: "product_component", displayName: "Synthetic non-latex condom", materialId: "synthetic_condom_material", plasticTypeId: "synthetic_condom", baseImpact: -10, materialImpact: -12, notes: "Polyurethane, polyisoprene, or nitrile style condom. Modeled as a better non-latex option for allergy use, but still a synthetic product in direct body contact." },
+    { id: "clearfit_condom_box", productId: "clearfit_nonlatex_condoms", partType: "outer_packaging", displayName: "Paper box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Outer cardboard box. Recycle only if clean and accepted locally." },
+    { id: "clearfit_condom_wrapper", productId: "clearfit_nonlatex_condoms", partType: "inner_packaging", displayName: "Foil wrapper", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -4, materialImpact: -6, notes: "Individual condom wrapper is usually a foil/plastic laminate and is not the same as the condom itself." },
     { id: "heritage_natural_membrane_condom", productId: "heritage_natural_skin_condoms", partType: "product_component", displayName: "Natural membrane condom", materialId: "natural_membrane", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Natural skin or lambskin-style membrane. Lower plastic exposure, but not recommended for HIV/STI prevention because small pores can allow viruses through." },
+    { id: "heritage_condom_box", productId: "heritage_natural_skin_condoms", partType: "outer_packaging", displayName: "Paper box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Outer cardboard box. Recycle only if clean and accepted locally." },
+    { id: "heritage_condom_wrapper", productId: "heritage_natural_skin_condoms", partType: "inner_packaging", displayName: "Foil wrapper", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -4, materialImpact: -6, notes: "Individual condom wrapper is usually a foil/plastic laminate and is not the same as the condom itself." },
     ...plasticListProductParts,
   ],
   productContexts: [
@@ -228,6 +234,9 @@ const db = {
     { sourceId: "source_cdc_condoms", entityType: "part", entityId: "safechoice_latex_condom" },
     { sourceId: "source_cdc_condoms", entityType: "part", entityId: "clearfit_synthetic_condom" },
     { sourceId: "source_cdc_condoms", entityType: "part", entityId: "heritage_natural_membrane_condom" },
+    { sourceId: "source_cdc_condoms", entityType: "part", entityId: "safechoice_condom_wrapper" },
+    { sourceId: "source_cdc_condoms", entityType: "part", entityId: "clearfit_condom_wrapper" },
+    { sourceId: "source_cdc_condoms", entityType: "part", entityId: "heritage_condom_wrapper" },
     { sourceId: "source_cdc_condoms", entityType: "context", entityId: "sti_limitation" },
   ],
   plasticListEvidence,
@@ -412,6 +421,8 @@ const defaultRecyclingRules = {
   ldpe4: "none",
   pva: "none",
   unknown_plastic: "unknown",
+  latex_rubber: "none",
+  synthetic_condom: "none",
   none: "not_applicable",
   glass: "widely",
   plastic: "limited",
@@ -580,6 +591,8 @@ function recyclingRuleLabel(key) {
     pp5: "PP #5 tubs, cups, and lids",
     ldpe4: "LDPE #4 film/flexible plastic",
     pva: "PVA/PVOH dissolvable film",
+    latex_rubber: "Used condom - do not recycle",
+    synthetic_condom: "Used condom - do not recycle",
     unknown_plastic: "Unidentified plastic",
     glass: "Glass containers",
     plastic: "Unspecified rigid plastic",
@@ -602,6 +615,9 @@ function combineRecyclability(statuses) {
 
 function getPartRecyclingRule(part, useLocation, locationId = "toronto_on") {
   const key = getRecyclabilityKey(part);
+  if (part?.partType === "product_component" && /condom/i.test(part.displayName || "")) {
+    return { status: "none", label: "Do not recycle used condoms", location: useLocation ? getRecyclingLocation(locationId) : null, note: "Only clean outer packaging should be checked for recycling." };
+  }
   if (part?.recyclingClaim === "label_confirmed") {
     return { status: "widely", label: "Recyclable label confirmed", location: useLocation ? getRecyclingLocation(locationId) : null, note: "Packaging label confirms recyclability." };
   }
