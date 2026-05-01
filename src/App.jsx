@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
 const plasticListBrandAliases = {
@@ -164,7 +165,7 @@ const db = {
     { id: "blueland_dishwasher_tablets", name: "Dishwasher Detergent Tablets", brand: "Blueland", categoryId: "cat_cleaning", productType: "dishwasher_detergent", imageUrl: "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Medium", verification: "community_verified", scoringNote: "Modeled as a lower-plastic dishwasher detergent option with paper packaging and no dissolvable PVA pod film." },
     { id: "paper_soap", name: "Paper-Wrapped Bar Soap", brand: "Local Maker", categoryId: "cat_personal", productType: "bar_soap", imageUrl: "https://images.unsplash.com/photo-1607006483224-21d4b8bc8bd7?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", scoringNote: "Uncoated paper has minimal impact but still involves packaging and processing. Slight deduction versus true zero-packaging soap." },
     { id: "campbells_soup", name: "Tomato Soup", brand: "Campbell’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Medium", verification: "inferred" },
-    { id: "hunts_tomato_paste", name: "Tomato Paste", brand: "Hunt’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1584269600519-1123c7b0e6f6?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", scoreOverride: 82, scoringNote: "Packaging label confirms a non-BPA liner and recyclable metal can. This earns a strong mainstream score, with a small caution because acidic tomato paste remains in contact with a synthetic can lining." },
+    { id: "hunts_tomato_paste", name: "Tomato Paste", brand: "Hunt’s", categoryId: "cat_food_drink", imageUrl: "https://images.unsplash.com/photo-1584269600519-1123c7b0e6f6?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "High", verification: "community_verified", barcode: "00027000379355", scoreOverride: 82, scoringNote: "Packaging label confirms a non-BPA liner and recyclable metal can. This earns a strong mainstream score, with a small caution because acidic tomato paste remains in contact with a synthetic can lining." },
     { id: "safechoice_latex_condoms", name: "Classic Latex Condoms", brand: "SafeChoice", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Low", verification: "inferred", scoreOverride: 18, scoringNote: "Fake starter product. Latex is modeled as the plastic-exposure baseline for this category, while still being a standard STI-prevention material." },
     { id: "clearfit_nonlatex_condoms", name: "Non-Latex Condoms", brand: "ClearFit", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 46, scoringNote: "Fake starter product. Synthetic non-latex materials are modeled as a better option for latex allergies and lower concern than standard latex in this app's plastic-exposure rubric." },
     { id: "heritage_natural_skin_condoms", name: "Natural Skin Condoms", brand: "Heritage", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 84, scoringNote: "Fake starter product. Scores best for plastic exposure, but natural membrane condoms are not recommended for HIV/STI prevention." },
@@ -1089,16 +1090,56 @@ function ProductRow({ product, onClick }) {
   return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{product.name}</span></div><div className="mt-0.5 text-sm text-neutral-500">{product.brand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></div></Card></FastTapButton>;
 }
 
+function normalizeBarcode(value = "") {
+  return String(value).replace(/\D/g, "").replace(/^0+(?=\d{12,13}$)/, "");
+}
+
+function findProductByBarcode(products, barcode) {
+  const code = normalizeBarcode(barcode);
+  if (!code) return null;
+  return products.find((product) => {
+    const productCodes = [product.barcode, ...(product.barcodes || [])].filter(Boolean).map(normalizeBarcode);
+    return productCodes.includes(code);
+  }) || null;
+}
+
+async function fetchOpenFoodFactsProduct(barcode) {
+  const code = normalizeBarcode(barcode);
+  if (!code) return null;
+  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,image_front_url,quantity,categories_tags`);
+  if (!response.ok) throw new Error("Open Food Facts lookup failed.");
+  const data = await response.json();
+  if (data.status !== 1 || !data.product) return null;
+  const product = data.product;
+  return {
+    barcode: code,
+    name: product.product_name || "Unknown product",
+    brand: product.brands?.split(",")[0]?.trim() || "",
+    imageUrl: product.image_front_url || "",
+    quantity: product.quantity || "",
+    source: "Open Food Facts",
+  };
+}
+
 function BottomNav({ tab, setTab }) {
   return <div className="relative z-20 border-t border-white/70 bg-white/72 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <FastTapButton key={key} onActivate={() => setTab(key)} className={`flex min-h-[54px] touch-manipulation flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></FastTapButton>; })}</div></div>;
 }
 
-function ScanScreen({ products, openResult }) {
+function ScanScreen({ products, openResult, openAddProduct }) {
   const [flashOn, setFlashOn] = useState(false);
   const [flashStatus, setFlashStatus] = useState("");
   const [scanMode, setScanMode] = useState("barcode");
+  const [scanStatus, setScanStatus] = useState("Ready to scan");
+  const [manualBarcode, setManualBarcode] = useState("");
+  const [scannedBarcode, setScannedBarcode] = useState("");
+  const [matchedProduct, setMatchedProduct] = useState(null);
+  const [openFoodFactsProduct, setOpenFoodFactsProduct] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
   const cameraStreamRef = useRef(null);
   const torchTrackRef = useRef(null);
+  const videoRef = useRef(null);
+  const scannerControlsRef = useRef(null);
+  const lastScannedRef = useRef("");
   const isBarcodeMode = scanMode === "barcode";
   const plasticListFood = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls") || products.find((product) => product.plasticListEvidence?.length) || products[4] || null;
   const plasticListPackaging = products.find((product) => product.id === "plasticlist_chick_fil_a_deluxe_sandwich") || products.find((product) => product.plasticListEvidence?.length) || products[2] || null;
@@ -1116,9 +1157,79 @@ function ScanScreen({ products, openResult }) {
 
   useEffect(() => {
     return () => {
+      scannerControlsRef.current?.stop?.();
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  function stopBarcodeScanner() {
+    scannerControlsRef.current?.stop?.();
+    scannerControlsRef.current = null;
+    setIsScanning(false);
+  }
+
+  const createMissingProductDraft = (source = openFoodFactsProduct, barcode = scannedBarcode || manualBarcode) => ({
+    barcode: normalizeBarcode(barcode),
+    name: source?.name || "",
+    brand: source?.brand || "",
+    imageUrl: source?.imageUrl || "",
+    quantity: source?.quantity || "",
+    source: source?.source || "Barcode scan",
+  });
+
+  const resolveBarcode = async (barcode) => {
+    const code = normalizeBarcode(barcode);
+    if (!code || code === lastScannedRef.current) return;
+    lastScannedRef.current = code;
+    setScannedBarcode(code);
+    setManualBarcode(code);
+    setMatchedProduct(null);
+    setOpenFoodFactsProduct(null);
+    setScanStatus(`Barcode found: ${code}`);
+    triggerHapticFeedback();
+    const localProduct = findProductByBarcode(products, code);
+    if (localProduct) {
+      setMatchedProduct(localProduct);
+      setScanStatus("Matched in your product database.");
+      stopBarcodeScanner();
+      return;
+    }
+    setScanStatus("Checking Open Food Facts...");
+    try {
+      const externalProduct = await fetchOpenFoodFactsProduct(code);
+      if (externalProduct) {
+        setOpenFoodFactsProduct(externalProduct);
+        setScanStatus("Found product info. Add photos to verify packaging.");
+      } else {
+        setScanStatus("Barcode not found. Add the product and packaging photos.");
+      }
+    } catch {
+      setScanStatus("Could not reach Open Food Facts. Add product manually.");
+    }
+    stopBarcodeScanner();
+  };
+
+  const startBarcodeScanner = async () => {
+    if (!videoRef.current) return;
+    setMatchedProduct(null);
+    setOpenFoodFactsProduct(null);
+    setScannedBarcode("");
+    lastScannedRef.current = "";
+    setScanStatus("Starting camera...");
+    setIsScanning(true);
+    try {
+      const reader = new BrowserMultiFormatReader();
+      scannerControlsRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+        if (result) resolveBarcode(result.getText());
+      });
+      cameraStreamRef.current = videoRef.current?.srcObject || null;
+      torchTrackRef.current = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
+      setScanStatus("Point the camera at a UPC or EAN barcode.");
+    } catch {
+      setIsScanning(false);
+      setScanStatus("Camera access was not enabled. Try Safari/Chrome over HTTPS.");
+    }
+  };
 
   const ensureCameraTrack = async () => {
     if (torchTrackRef.current?.readyState === "live") return torchTrackRef.current;
@@ -1157,7 +1268,7 @@ function ScanScreen({ products, openResult }) {
     }
   };
 
-  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#52525b_0%,_#18181b_56%,_#050505_100%)]" /><div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),transparent_28%,rgba(0,0,0,0.45))]" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 px-6"><div className="grid grid-cols-2 rounded-full border border-white/12 bg-white/10 p-1 shadow-inner backdrop-blur-xl" role="tablist" aria-label="Scan mode"><button type="button" role="tab" aria-selected={isBarcodeMode} onClick={() => setScanMode("barcode")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><BarcodeScanIcon size={18} active={isBarcodeMode} />Barcode</button><button type="button" role="tab" aria-selected={!isBarcodeMode} onClick={() => setScanMode("packaging")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${!isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><PackageSymbolIcon size={19} active={!isBarcodeMode} />Packaging</button></div></div><div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center"><motion.button type="button" whileTap={{ scale: 0.98 }} onClick={() => openResult(scanCopy.target)} className="relative flex h-64 w-64 items-center justify-center rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)] backdrop-blur-sm" aria-label={scanCopy.title}><span className="absolute left-8 top-8 h-8 w-8 border-l-[5px] border-t-[5px] border-white rounded-tl-lg" /><span className="absolute right-8 top-8 h-8 w-8 border-r-[5px] border-t-[5px] border-white rounded-tr-lg" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-[5px] border-l-[5px] border-white rounded-bl-lg" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-[5px] border-r-[5px] border-white rounded-br-lg" />{isBarcodeMode ? <BarcodeScanIcon size={112} active={false} /> : <PackageSymbolIcon size={116} active={false} />}</motion.button><p className="mt-6 max-w-[300px] text-sm leading-6 text-white/68">{scanCopy.help}</p>{flashStatus && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">{flashStatus}</p>}<Button onClick={() => openResult(isBarcodeMode ? null : scanCopy.target)} variant="light" className="mt-6">{scanCopy.action}</Button></div></div>;
+  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#52525b_0%,_#18181b_56%,_#050505_100%)]" /><div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),transparent_28%,rgba(0,0,0,0.45))]" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 px-6"><div className="grid grid-cols-2 rounded-full border border-white/12 bg-white/10 p-1 shadow-inner backdrop-blur-xl" role="tablist" aria-label="Scan mode"><button type="button" role="tab" aria-selected={isBarcodeMode} onClick={() => setScanMode("barcode")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><BarcodeScanIcon size={18} active={isBarcodeMode} />Barcode</button><button type="button" role="tab" aria-selected={!isBarcodeMode} onClick={() => { stopBarcodeScanner(); setScanMode("packaging"); }} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${!isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><PackageSymbolIcon size={19} active={!isBarcodeMode} />Packaging</button></div></div><div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center">{isBarcodeMode ? <div className="w-full"><div className="relative mx-auto h-64 w-64 overflow-hidden rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)]"><video ref={videoRef} className={`h-full w-full object-cover ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay /><span className="absolute left-8 top-8 h-8 w-8 rounded-tl-lg border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-8 w-8 rounded-tr-lg border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 rounded-bl-lg border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 rounded-br-lg border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center"><BarcodeScanIcon size={108} active={false} /></div>}</div><p className="mx-auto mt-5 max-w-[310px] text-sm leading-6 text-white/70">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/50">Barcode {scannedBarcode}</p>}{matchedProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-3 text-left text-neutral-950"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /></div>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}<div className="mx-auto mt-4 flex max-w-[330px] gap-2"><input inputMode="numeric" value={manualBarcode} onChange={(event) => setManualBarcode(event.target.value)} placeholder="Enter barcode" className="min-w-0 flex-1 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white outline-none placeholder:text-white/35" /><Button onClick={() => resolveBarcode(manualBarcode)} variant="light" className="px-4">Lookup</Button></div><div className="mt-4 flex justify-center gap-3"><Button onClick={isScanning ? stopBarcodeScanner : startBarcodeScanner} variant="light">{isScanning ? "Stop scanner" : "Start scanner"}</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="outline" className="border-white/20 bg-white/10 text-white">Add missing</Button></div></div> : <><motion.button type="button" whileTap={{ scale: 0.98 }} onClick={() => openAddProduct({ source: "Packaging symbol scan", packagingScan: true })} className="relative flex h-64 w-64 items-center justify-center rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)] backdrop-blur-sm" aria-label={scanCopy.title}><span className="absolute left-8 top-8 h-8 w-8 rounded-tl-lg border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-8 w-8 rounded-tr-lg border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 rounded-bl-lg border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 rounded-br-lg border-b-[5px] border-r-[5px] border-white" /><PackageSymbolIcon size={116} active={false} /></motion.button><p className="mt-6 max-w-[300px] text-sm leading-6 text-white/68">{scanCopy.help}</p><Button onClick={() => openAddProduct({ source: "Packaging symbol scan", packagingScan: true })} variant="light" className="mt-6">Add packaging photos</Button></>}{flashStatus && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">{flashStatus}</p>}</div></div>;
 }
 
 function SourceCard({ link }) {
@@ -1299,9 +1410,21 @@ function SearchScreen({ products, openResult, openAddProduct }) {
   return <div className="min-h-[690px] px-5 pb-4"><Header title="Search" /><div onClick={focusSearch} onTouchEnd={focusSearch} className="mb-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-sm"><Icon type="search" active={false} size={22} /><input ref={searchInputRef} value={query} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} placeholder="Search products, brands, or categories" enterKeyHint="search" className="w-full bg-transparent text-base outline-none" /></div><div className="mb-4 flex gap-2 overflow-x-auto pb-1"><FastTapButton onActivate={() => { triggerHapticFeedback(); setPlasticFreeOnly(!plasticFreeOnly); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${plasticFreeOnly ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>Plastic-free only</FastTapButton>{tags.map((tag) => <FastTapButton key={tag} onActivate={() => { triggerHapticFeedback(); toggleTag(tag); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${activeTags.includes(tag) ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{tag}</FastTapButton>)}</div>{shouldShowTrending && trendingProducts.length > 0 && <Card className="mb-4"><div className="p-4"><SocialHighlightHeader title="Trending this week" copy="Most saved in trusted circles" /><div className="flex gap-3 overflow-x-auto pb-1">{trendingProducts.map((product) => <TrendingProductChip key={product.id} product={product} onClick={() => openResult(product)} />)}</div></div></Card>}<div className="space-y-2">{filtered.length ? filtered.map((product, index) => <motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index, 3) * 0.025, duration: 0.16 }}><ProductRow product={product} onClick={() => openResult(product)} /></motion.div>) : <div className="mt-20 text-center"><div className="text-xl font-semibold text-neutral-950">No product found</div><p className="mt-2 text-sm text-neutral-500">Add photos and packaging notes to help verify it.</p><Button onClick={openAddProduct} className="mt-5">＋ Add product</Button></div>}</div></div>;
 }
 
-function AddProductScreen({ close }) {
+function PhotoUploadSlot({ label, value, onChange }) {
+  return (
+    <label className="block rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-left">
+      <span className="block text-sm font-semibold text-neutral-950">{label}</span>
+      <span className="mt-1 block truncate text-xs text-neutral-500">{value || "Tap to choose photo"}</span>
+      <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => onChange(event.target.files?.[0]?.name || "")} />
+    </label>
+  );
+}
+
+function AddProductScreen({ close, draft = {} }) {
   const [flashOn, setFlashOn] = useState(false);
-  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl"><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></button><div className="mt-5 flex gap-3"><Button variant="light">Front photo</Button><Button variant="light">Packaging</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[300px] text-sm leading-6 text-white/70">Submit the product and packaging details so the database can review hidden plastic and update the score.</p></div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><Field label="Product name" placeholder="e.g. UltraShine Dishwasher Detergent" /><Field label="Brand" placeholder="e.g. Kirkland Signature" /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Baby</option><option>Other</option></select></label><Field label="Barcode number" placeholder="Scan or enter manually" /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Container symbol scan</span><div className="rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-sm text-neutral-600">For takeout containers with no barcode, scan recycling icons, resin numbers, microwave-safe symbols, compostable markings, or hot-cup liner symbols. Heat-sensitive containers are scored more aggressively.</div></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button className="w-full">Submit for review</Button></div></div></div>;
+  const [photos, setPhotos] = useState({ front: "", back: "", barcode: "", symbols: "" });
+  const setPhoto = (key, value) => setPhotos((current) => ({ ...current, [key]: value }));
+  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl">{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></>}</button><div className="mt-5 flex gap-3"><Button variant="light">Photo review</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload front, back label, barcode, and plastic/recycling symbols so the database can verify the product before it becomes public.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><Field label="Product name" placeholder="e.g. UltraShine Dishwasher Detergent" defaultValue={draft.name || ""} /><Field label="Brand" placeholder="e.g. Kirkland Signature" defaultValue={draft.brand || ""} /><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select defaultValue={draft.packagingScan ? "Other" : "Food and drink"} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><Field label="Barcode number" placeholder="Scan or enter manually" defaultValue={draft.barcode || ""} /><div><span className="mb-2 block text-sm font-medium text-neutral-700">Required photos</span><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label="Front" value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Back label" value={photos.back} onChange={(value) => setPhoto("back", value)} /><PhotoUploadSlot label="Barcode" value={photos.barcode} onChange={(value) => setPhoto("barcode", value)} /><PhotoUploadSlot label="Plastic symbols" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Main container, cap, liner, wrapper, inner packaging, etc." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><Button className="w-full">Submit for review</Button></div></div></div>;
 }
 
 function HistoryScreen({ products, openResult, openScanned, openSearched }) {
@@ -2130,6 +2253,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showPlans, setShowPlans] = useState(false);
   const [viewUser, setViewUser] = useState(null);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [addProductDraft, setAddProductDraft] = useState({});
   const [badgeToast, setBadgeToast] = useState(null);
   const toastTimeoutRef = useRef(null);
   const contentScrollRef = useRef(null);
@@ -2176,6 +2300,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setResult(product);
     resetOverlays();
     setShowResult(true);
+  };
+
+  const openAddProduct = (draft = {}) => {
+    setAddProductDraft(draft || {});
+    resetOverlays();
+    setShowAddProduct(true);
   };
 
   const openPartDetail = (product, part) => {
@@ -2330,7 +2460,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showAddProduct ? (
   <motion.div key="add-product" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <AddProductScreen close={() => setShowAddProduct(false)} />
+    <AddProductScreen draft={addProductDraft} close={() => { setShowAddProduct(false); setAddProductDraft({}); }} />
   </motion.div>
 ) : showPlans ? (
   <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
@@ -2378,8 +2508,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
-    {tab === "scan" && <ScanScreen products={products} openResult={handleScan} />}
-    {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => setShowAddProduct(true)} />}
+    {tab === "scan" && <ScanScreen products={products} openResult={handleScan} openAddProduct={openAddProduct} />}
+    {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
     {tab === "history" && <HistoryScreen products={products} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
     {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} profile={profile} favoriteIds={favoriteIds} localeCopy={localeCopy} />}
