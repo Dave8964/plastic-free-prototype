@@ -2364,7 +2364,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [submittedProducts, setSubmittedProducts] = useState([]);
   const [submittedParts, setSubmittedParts] = useState([]);
   const products = useMemo(() => [...db.products, ...submittedProducts].map((product) => hydrateProduct(product, submittedParts)), [submittedProducts, submittedParts]);
-  const [tab, setTab] = useState("scan");
+  const [tab, setTab] = useState("search");
   const [result, setResult] = useState(null);
   const [detail, setDetail] = useState(null);
   const [plasticListDetail, setPlasticListDetail] = useState(null);
