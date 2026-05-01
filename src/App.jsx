@@ -968,7 +968,11 @@ function BottomNav({ tab, setTab }) {
 
 function ScanScreen({ products, openResult }) {
   const [flashOn, setFlashOn] = useState(false);
+  const [flashStatus, setFlashStatus] = useState("");
   const [scanMode, setScanMode] = useState("barcode");
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const torchTrackRef = useRef(null);
   const isBarcodeMode = scanMode === "barcode";
   const plasticListFood = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls") || products.find((product) => product.plasticListEvidence?.length) || products[4] || null;
   const plasticListPackaging = products.find((product) => product.id === "plasticlist_chick_fil_a_deluxe_sandwich") || products.find((product) => product.plasticListEvidence?.length) || products[2] || null;
@@ -984,7 +988,49 @@ function ScanScreen({ products, openResult }) {
     target: plasticListPackaging,
   };
 
-  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#52525b_0%,_#18181b_56%,_#050505_100%)]" /><div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),transparent_28%,rgba(0,0,0,0.45))]" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 px-6"><div className="grid grid-cols-2 rounded-full border border-white/12 bg-white/10 p-1 shadow-inner backdrop-blur-xl" role="tablist" aria-label="Scan mode"><button type="button" role="tab" aria-selected={isBarcodeMode} onClick={() => setScanMode("barcode")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><BarcodeScanIcon size={18} active={isBarcodeMode} />Barcode</button><button type="button" role="tab" aria-selected={!isBarcodeMode} onClick={() => setScanMode("packaging")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${!isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><PackageSymbolIcon size={19} active={!isBarcodeMode} />Packaging</button></div></div><div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center"><motion.button type="button" whileTap={{ scale: 0.98 }} onClick={() => openResult(scanCopy.target)} className="relative flex h-64 w-64 items-center justify-center rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)] backdrop-blur-sm" aria-label={scanCopy.title}><span className="absolute left-8 top-8 h-8 w-8 border-l-[5px] border-t-[5px] border-white rounded-tl-lg" /><span className="absolute right-8 top-8 h-8 w-8 border-r-[5px] border-t-[5px] border-white rounded-tr-lg" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-[5px] border-l-[5px] border-white rounded-bl-lg" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-[5px] border-r-[5px] border-white rounded-br-lg" />{isBarcodeMode ? <BarcodeScanIcon size={112} active={false} /> : <PackageSymbolIcon size={116} active={false} />}</motion.button><p className="mt-6 max-w-[300px] text-sm leading-6 text-white/68">{scanCopy.help}</p><Button onClick={() => openResult(isBarcodeMode ? null : scanCopy.target)} variant="light" className="mt-6">{scanCopy.action}</Button></div></div>;
+  useEffect(() => {
+    return () => {
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  const ensureCameraTrack = async () => {
+    if (torchTrackRef.current?.readyState === "live") return torchTrackRef.current;
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Camera access is not available in this browser.");
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+    cameraStreamRef.current = stream;
+    const [track] = stream.getVideoTracks();
+    torchTrackRef.current = track;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {});
+    }
+    return track;
+  };
+
+  const toggleFlashlight = async () => {
+    const nextFlashState = !flashOn;
+    setFlashStatus("");
+    try {
+      const track = await ensureCameraTrack();
+      const capabilities = track.getCapabilities?.() || {};
+      if (!capabilities.torch) {
+        setFlashStatus("Flashlight control is not available in this browser.");
+        setFlashOn(false);
+        return;
+      }
+      await track.applyConstraints({ advanced: [{ torch: nextFlashState }] });
+      setFlashOn(nextFlashState);
+      setFlashStatus(nextFlashState ? "Flashlight on" : "");
+    } catch {
+      setFlashOn(false);
+      setFlashStatus("Allow camera access to use the flashlight.");
+    }
+  };
+
+  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><video ref={videoRef} playsInline muted className="pointer-events-none absolute inset-0 h-px w-px opacity-0" /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#52525b_0%,_#18181b_56%,_#050505_100%)]" /><div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),transparent_28%,rgba(0,0,0,0.45))]" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 px-6"><div className="grid grid-cols-2 rounded-full border border-white/12 bg-white/10 p-1 shadow-inner backdrop-blur-xl" role="tablist" aria-label="Scan mode"><button type="button" role="tab" aria-selected={isBarcodeMode} onClick={() => setScanMode("barcode")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><BarcodeScanIcon size={18} active={isBarcodeMode} />Barcode</button><button type="button" role="tab" aria-selected={!isBarcodeMode} onClick={() => setScanMode("packaging")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${!isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><PackageSymbolIcon size={19} active={!isBarcodeMode} />Packaging</button></div></div><div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center"><motion.button type="button" whileTap={{ scale: 0.98 }} onClick={() => openResult(scanCopy.target)} className="relative flex h-64 w-64 items-center justify-center rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)] backdrop-blur-sm" aria-label={scanCopy.title}><span className="absolute left-8 top-8 h-8 w-8 border-l-[5px] border-t-[5px] border-white rounded-tl-lg" /><span className="absolute right-8 top-8 h-8 w-8 border-r-[5px] border-t-[5px] border-white rounded-tr-lg" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-[5px] border-l-[5px] border-white rounded-bl-lg" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-[5px] border-r-[5px] border-white rounded-br-lg" />{isBarcodeMode ? <BarcodeScanIcon size={112} active={false} /> : <PackageSymbolIcon size={116} active={false} />}</motion.button><p className="mt-6 max-w-[300px] text-sm leading-6 text-white/68">{scanCopy.help}</p>{flashStatus && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">{flashStatus}</p>}<Button onClick={() => openResult(isBarcodeMode ? null : scanCopy.target)} variant="light" className="mt-6">{scanCopy.action}</Button></div></div>;
 }
 
 function SourceCard({ link }) {
@@ -1746,7 +1792,7 @@ function ResultScreen({ product, close, openDetail, openShare, favoriteIds = [],
                 <p className="mt-1 text-sm leading-5 text-red-800">{harshReason}</p>
                 {product.hasHighRiskCanScenario && (
                   <p className="mt-2 rounded-2xl bg-white p-3 text-sm leading-5 text-red-800">
-                    This warning is about the manufacturing process: soup is typically heated before or during can filling, so hot liquid can sit against the can liner before the product ever reaches your kitchen. It is not saying you are heating the soup in the can. A PubMed Central / JAMA study found higher urinary BPA after canned soup consumption compared with fresh soup, so hot filled liquid foods in lined cans receive a stronger warning.
+                    Soup is usually hot-filled during manufacturing, so hot liquid can sit against the can liner before it reaches your kitchen. This is not about heating soup in the can at home; it is why lined canned soups receive a stronger warning.
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -1895,6 +1941,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openResult = (product) => {
+    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
     setResult(product);
     resetOverlays();
     setShowResult(true);
@@ -1999,25 +2046,6 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (showResult) setShowResult(false);
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(hideNav && !isSignedOut));
-  const activeScreenKey = [
-    tab,
-    viewUser?.id || "",
-    showAddProduct ? "add-product" : "",
-    showPlans ? "plans" : "",
-    showNotifications ? "notifications" : "",
-    shareProduct?.id || "",
-    historyList?.title || "",
-    showDeleteAccount ? "delete-account" : "",
-    showBadges ? "badges" : "",
-    showFavorites ? "favorites" : "",
-    showSettings ? "settings" : "",
-    detail ? `${detail.product.id}-${detail.part.id}` : "",
-    showResult ? result?.id || "result" : ""
-  ].join("|");
-
-  useEffect(() => {
-    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [activeScreenKey]);
 
   return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto" {...appSwipeBackHandlers}><AnimatePresence mode="wait">
 {viewUser ? (
