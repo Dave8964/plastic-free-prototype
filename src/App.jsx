@@ -1284,6 +1284,52 @@ function HeartIcon({ filled = false, size = 22 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>;
 }
 
+function CloseIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12" /><path d="M18 6L6 18" /></svg>;
+}
+
+function ProductImagePreview({ product, close }) {
+  const swipeBackHandlers = useSwipeBack(close, true);
+  return (
+    <motion.div
+      className="fixed left-1/2 top-0 z-[90] flex h-[100dvh] w-full max-w-[430px] -translate-x-1/2 items-center justify-center overflow-hidden bg-black/82 px-5 backdrop-blur-xl md:top-1/2 md:h-[min(760px,calc(100dvh-4rem))] md:-translate-y-1/2 md:rounded-[2.35rem]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 0.8, 0.2, 1] }}
+      onClick={close}
+      {...swipeBackHandlers}
+    >
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          triggerHapticFeedback();
+          close();
+        }}
+        className="absolute right-5 top-[max(1.25rem,env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-neutral-950 shadow-lg ring-1 ring-white/30 backdrop-blur transition active:scale-95"
+        aria-label="Close image preview"
+      >
+        <CloseIcon />
+      </button>
+      <motion.div
+        className="w-full"
+        initial={{ opacity: 0, scale: 0.94, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.3, ease: [0.2, 0.82, 0.2, 1] }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <ProductImage src={product.imageUrl} alt={product.name} className="mx-auto max-h-[72dvh] w-full max-w-[360px] rounded-[2rem] bg-[#f7f3eb] object-contain shadow-2xl" />
+        <div className="mx-auto mt-4 max-w-[360px] text-center">
+          <div className="text-sm font-medium text-white/70">{product.brand}</div>
+          <div className="mt-1 text-lg font-semibold leading-tight text-white">{product.name}</div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function SocialProductPreview({ product, onClick }) {
   return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></button>;
 }
@@ -1662,8 +1708,13 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
   const [showScoreDetails, setShowScoreDetails] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
   const recyclingLocation = getRecyclingLocation(selectedRecyclingLocation);
   const handleSwipeBack = () => {
+    if (showImagePreview) {
+      setShowImagePreview(false);
+      return;
+    }
     if (showScoreDetails) {
       setShowScoreDetails(false);
       return;
@@ -1671,6 +1722,15 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
     close();
   };
   const swipeBackHandlers = useSwipeBack(handleSwipeBack, Boolean(product));
+
+  useEffect(() => {
+    if (!showImagePreview) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setShowImagePreview(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showImagePreview]);
 
   if (!product) return <UnknownScreen close={close} />;
   if (showScoreDetails) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
@@ -1801,9 +1861,17 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
           >
             <AppleShareIcon />
           </button>
-          <div className="mx-auto flex items-start justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              setShowImagePreview(true);
+            }}
+            className="mx-auto flex items-start justify-center rounded-[2rem] transition active:scale-[0.98]"
+            aria-label="Open larger product image"
+          >
             <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" />
-          </div>
+          </button>
 
           <div className="mt-5 flex justify-center">
             <ScoreRing score={product.score} onClick={() => setShowScoreDetails(true)} featured={isNearIdealScore} />
@@ -1841,6 +1909,10 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
           </p>
         </div>
       </Card>
+
+      <AnimatePresence>
+        {showImagePreview && <ProductImagePreview product={product} close={() => setShowImagePreview(false)} />}
+      </AnimatePresence>
 
       <div className="mt-5 overflow-hidden rounded-3xl bg-white shadow-sm">
         <div className="p-4">
