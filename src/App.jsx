@@ -1908,7 +1908,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
 
 
 ;function runTests() {
-  const products = db.products.map(hydrateProduct);
+  const products = db.products.map((product) => hydrateProduct(product));
   const soap = products.find((product) => product.id === "paper_soap");
   const dishwasher = products.find((product) => product.id === "kirkland_dishwasher");
   const dishwasherSwap = products.find((product) => product.id === "blueland_dishwasher_tablets");
