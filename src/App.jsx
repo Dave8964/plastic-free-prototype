@@ -1160,9 +1160,20 @@ function DeleteAccountScreen({ close, onConfirmDelete }) {
   return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Delete account" right={<BackButton onClick={close} />} /><div className="mt-8 rounded-3xl bg-white p-5 text-center shadow-sm"><div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 text-4xl font-semibold text-red-700">!</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Are you sure?</h2><p className="mt-3 text-sm leading-6 text-neutral-500">Deleting your account will permanently remove your profile, scan history, favorites, social activity, and saved settings. This cannot be undone.</p><Button onClick={onConfirmDelete} className="mt-6 w-full bg-red-700 hover:bg-red-800">Permanently delete account</Button><Button onClick={close} variant="ghost" className="mt-2 w-full">Cancel</Button></div></div>;
 }
 
+function NotificationIcon({ type }) {
+  const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+  if (type === "score") return <svg {...common}><path d="M7 7h10" /><path d="M7 12h6" /><path d="m15 12 3 3 3-3" /><path d="M18 15V7" /><path d="m9 17-3-3-3 3" /><path d="M6 14v3" /></svg>;
+  if (type === "share") return <svg {...common}><path d="M7 17 17 7" /><path d="M9 7h8v8" /><path d="M5 11v8h8" /></svg>;
+  return <svg {...common}><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /><circle cx="12" cy="12" r="3" /></svg>;
+}
+
 function NotificationsScreen({ close }) {
-  const notifications = [{ id: 1, title: "Product score updated", text: "Solid Light Tuna changed from 42 → 38 after new liner information was added.", time: "2h", icon: "↕" }, { id: 2, title: "Product shared with you", text: "Maya shared Paper-Wrapped Bar Soap with you.", time: "5h", icon: "↗" }, { id: 3, title: "New scan from someone you follow", text: "Jon scanned UltraShine Dishwasher Detergent.", time: "1d", icon: "⌕" }];
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Notifications" right={<BackButton onClick={close} />} /><div className="space-y-2">{notifications.map((item) => <div key={item.id} className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f7f3eb] font-semibold text-neutral-950">{item.icon}</div><div className="min-w-0 flex-1"><div className="font-medium text-neutral-950">{item.title}</div><div className="mt-1 text-sm leading-5 text-neutral-500">{item.text}</div><div className="mt-1 text-xs text-neutral-400">{item.time} ago</div></div></div>)}</div></div>;
+  const notifications = [
+    { id: 1, title: "Product score updated", message: <>Solid Light Tuna changed from 42 → 38 after new liner information was added.</>, time: "2h", icon: "score" },
+    { id: 2, title: "Product shared with you", message: <><span className="text-neutral-500">Maya K.</span><span> shared </span><span className="font-medium text-neutral-700">Paper-Wrapped Bar Soap</span><span> with you.</span></>, time: "5h", icon: "share" },
+    { id: 3, title: "New scan from someone you follow", message: <><span className="text-neutral-500">Jon R.</span><span> scanned </span><span className="font-medium text-neutral-700">UltraShine Dishwasher Detergent</span><span>.</span></>, time: "1d", icon: "scan" }
+  ];
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Notifications" right={<BackButton onClick={close} />} /><div className="space-y-2">{notifications.map((item) => <div key={item.id} className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f7f3eb] text-neutral-950"><NotificationIcon type={item.icon} /></div><div className="min-w-0 flex-1"><div className="font-medium text-neutral-950">{item.title}</div><div className="mt-1 text-sm leading-5 text-neutral-600">{item.message}</div><div className="mt-1 text-xs text-neutral-400">{item.time} ago</div></div></div>)}</div></div>;
 }
 
 function PlansScreen({ close }) {
