@@ -1320,6 +1320,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     cameraStreamRef.current = null;
     torchTrackRef.current = null;
     setIsScanning(false);
+    setFlashOn(false);
   }
 
   const getBarcodeReader = () => {
@@ -1328,8 +1329,8 @@ function ScanScreen({ products, openResult, openAddProduct }) {
       hints.set(DecodeHintType.POSSIBLE_FORMATS, RETAIL_BARCODE_FORMATS);
       hints.set(DecodeHintType.TRY_HARDER, true);
       barcodeReaderRef.current = new BrowserMultiFormatReader(hints, {
-        delayBetweenScanAttempts: 90,
-        delayBetweenScanSuccess: 200,
+        delayBetweenScanAttempts: 45,
+        delayBetweenScanSuccess: 90,
         tryPlayVideoTimeout: 1200,
       });
     }
@@ -1406,7 +1407,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setIsScanning(true);
     try {
       const reader = getBarcodeReader();
-      scannerControlsRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+      scannerControlsRef.current = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }, videoRef.current, (result) => {
         if (result) handleBarcodeCandidate(result.getText());
       });
       cameraStreamRef.current = videoRef.current?.srcObject || null;
@@ -1450,7 +1451,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
       await track.applyConstraints({ advanced: [{ torch: nextFlashState }] });
       setFlashOn(nextFlashState);
       setFlashStatus(nextFlashState ? "Flashlight on" : "");
-      if (!nextFlashState) {
+      if (!nextFlashState && !scannerControlsRef.current) {
         cameraStreamRef.current?.getTracks().forEach((streamTrack) => streamTrack.stop());
         cameraStreamRef.current = null;
         torchTrackRef.current = null;
