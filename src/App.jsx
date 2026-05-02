@@ -919,7 +919,7 @@ function Phone({ children }) {
   }, []);
 
   return (
-    <div className="mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-0 pb-0 md:h-[min(760px,calc(100dvh-4rem))] md:w-[430px] md:rounded-[2.35rem] md:border md:border-white/70 md:shadow-[0_32px_90px_rgba(0,0,0,0.22)] md:ring-1 md:ring-black/5">
+    <div className="relative mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-0 pb-0 md:h-[min(760px,calc(100dvh-4rem))] md:w-[430px] md:rounded-[2.35rem] md:border md:border-white/70 md:shadow-[0_32px_90px_rgba(0,0,0,0.22)] md:ring-1 md:ring-black/5">
       {children}
     </div>
   );
@@ -1275,7 +1275,6 @@ function BottomNav({ tab, setTab }) {
 
 function ScanScreen({ products, openResult, openAddProduct }) {
   const [flashOn, setFlashOn] = useState(false);
-  const [flashStatus, setFlashStatus] = useState("");
   const [scanMode, setScanMode] = useState("barcode");
   const [scanStatus, setScanStatus] = useState("Ready to scan");
   const [scannedBarcode, setScannedBarcode] = useState("");
@@ -1439,18 +1438,15 @@ function ScanScreen({ products, openResult, openAddProduct }) {
 
   const toggleFlashlight = async () => {
     const nextFlashState = !flashOn;
-    setFlashStatus("");
     try {
       const track = await ensureCameraTrack();
       const capabilities = track.getCapabilities?.() || {};
       if (!capabilities.torch) {
-        setFlashStatus("Flashlight control is not available in this browser.");
         setFlashOn(false);
         return;
       }
       await track.applyConstraints({ advanced: [{ torch: nextFlashState }] });
       setFlashOn(nextFlashState);
-      setFlashStatus(nextFlashState ? "Flashlight on" : "");
       if (!nextFlashState && !scannerControlsRef.current) {
         cameraStreamRef.current?.getTracks().forEach((streamTrack) => streamTrack.stop());
         cameraStreamRef.current = null;
@@ -1458,11 +1454,10 @@ function ScanScreen({ products, openResult, openAddProduct }) {
       }
     } catch {
       setFlashOn(false);
-      setFlashStatus("Allow camera access to use the flashlight.");
     }
   };
 
-  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#52525b_0%,_#18181b_56%,_#050505_100%)]" /><div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),transparent_28%,rgba(0,0,0,0.45))]" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 px-6"><div className="grid grid-cols-2 rounded-full border border-white/12 bg-white/10 p-1 shadow-inner backdrop-blur-xl" role="tablist" aria-label="Scan mode"><button type="button" role="tab" aria-selected={isBarcodeMode} onClick={() => setScanMode("barcode")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><BarcodeScanIcon size={18} active={isBarcodeMode} />Barcode</button><button type="button" role="tab" aria-selected={!isBarcodeMode} onClick={() => { stopBarcodeScanner(); setScanMode("packaging"); }} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${!isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><PackageSymbolIcon size={19} active={!isBarcodeMode} />Packaging</button></div></div><div className="relative z-10 flex flex-1 flex-col items-center justify-start px-6 pt-9 text-center">{isBarcodeMode ? <div className="w-full"><div className="relative mx-auto h-64 w-64 overflow-hidden rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)]"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay /><span className="absolute left-8 top-8 h-8 w-8 rounded-tl-lg border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-8 w-8 rounded-tr-lg border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 rounded-bl-lg border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 rounded-br-lg border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center">{isBarcodeNotFound ? <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/50 bg-white/12 text-6xl font-semibold text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md">!</div> : <BarcodeScanIcon size={108} active={false} />}</div>}</div><p className="mx-auto mt-5 max-w-[310px] min-h-[48px] text-sm leading-6 text-white/70">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/50">Barcode {scannedBarcode}</p>}{matchedProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-3 text-left text-neutral-950"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /><Button onClick={() => openAddProduct({ ...createMissingProductDraft(matchedProduct), packagingEvidence: true, source: "Packaging evidence update" })} variant="light" className="mt-3 w-full border border-neutral-200 bg-neutral-100 text-neutral-950">Add packaging evidence</Button></div>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}{isBarcodeNotFound && <div className="mx-auto mt-4 grid max-w-[330px] grid-cols-2 gap-2"><Button onClick={startBarcodeScanner} variant="light">Scan again</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="light" className="border border-white/15 bg-white/10 text-white hover:bg-white/15">Add missing</Button></div>}</div> : <div className="mx-auto flex w-full max-w-[330px] flex-col items-center"><div className="relative flex h-64 w-64 items-center justify-center rounded-[2.25rem] border border-white/35 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.35)] backdrop-blur-sm"><PackageSymbolIcon size={104} active={false} /></div><p className="mt-6 max-w-[310px] text-sm leading-6 text-white/68">Packaging symbols are collected after a barcode scan, either when the product is missing or when an existing product needs better material evidence.</p><Button onClick={() => setScanMode("barcode")} variant="light" className="mt-6">Scan barcode first</Button></div>}{flashStatus && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">{flashStatus}</p>}</div></div>;
+  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#52525b_0%,_#18181b_56%,_#050505_100%)]" /><div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),transparent_28%,rgba(0,0,0,0.45))]" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 px-6"><div className="grid grid-cols-2 rounded-full border border-white/12 bg-white/10 p-1 shadow-inner backdrop-blur-xl" role="tablist" aria-label="Scan mode"><button type="button" role="tab" aria-selected={isBarcodeMode} onClick={() => setScanMode("barcode")} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><BarcodeScanIcon size={18} active={isBarcodeMode} />Barcode</button><button type="button" role="tab" aria-selected={!isBarcodeMode} onClick={() => { stopBarcodeScanner(); setScanMode("packaging"); }} className={`flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition ${!isBarcodeMode ? "bg-white text-neutral-950 shadow-sm" : "text-white/70"}`}><PackageSymbolIcon size={19} active={!isBarcodeMode} />Packaging</button></div></div><div className="relative z-10 flex flex-1 flex-col items-center justify-start px-6 pt-9 text-center">{isBarcodeMode ? <div className="w-full"><div className="relative mx-auto h-64 w-64 overflow-hidden rounded-[2.25rem] border border-white/70 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.45)]"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay /><span className="absolute left-8 top-8 h-8 w-8 rounded-tl-lg border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-8 w-8 rounded-tr-lg border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 rounded-bl-lg border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 rounded-br-lg border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center">{isBarcodeNotFound ? <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/50 bg-white/12 text-6xl font-semibold text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md">!</div> : <BarcodeScanIcon size={108} active={false} />}</div>}</div><p className="mx-auto mt-5 max-w-[310px] min-h-[48px] text-sm leading-6 text-white/70">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/50">Barcode {scannedBarcode}</p>}{matchedProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-3 text-left text-neutral-950"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /><Button onClick={() => openAddProduct({ ...createMissingProductDraft(matchedProduct), packagingEvidence: true, source: "Packaging evidence update" })} variant="light" className="mt-3 w-full border border-neutral-200 bg-neutral-100 text-neutral-950">Add packaging evidence</Button></div>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}{isBarcodeNotFound && <div className="mx-auto mt-4 grid max-w-[330px] grid-cols-2 gap-2"><Button onClick={startBarcodeScanner} variant="light">Scan again</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="light" className="border border-white/15 bg-white/10 text-white hover:bg-white/15">Add missing</Button></div>}</div> : <div className="mx-auto flex w-full max-w-[330px] flex-col items-center"><div className="relative flex h-64 w-64 items-center justify-center rounded-[2.25rem] border border-white/35 bg-white/8 shadow-[0_30px_70px_rgba(0,0,0,0.35)] backdrop-blur-sm"><PackageSymbolIcon size={104} active={false} /></div><p className="mt-6 max-w-[310px] text-sm leading-6 text-white/68">Packaging symbols are collected after a barcode scan, either when the product is missing or when an existing product needs better material evidence.</p><Button onClick={() => setScanMode("barcode")} variant="light" className="mt-6">Scan barcode first</Button></div>}</div></div>;
 }
 
 function SourceCard({ link }) {
@@ -2457,6 +2452,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showPlans, setShowPlans] = useState(false);
   const [viewUser, setViewUser] = useState(null);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [addProductAsSheet, setAddProductAsSheet] = useState(false);
   const [addProductDraft, setAddProductDraft] = useState({});
   const [badgeToast, setBadgeToast] = useState(null);
   const toastTimeoutRef = useRef(null);
@@ -2547,6 +2543,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setShowNotifications(false);
     setShowPlans(false);
     setShowAddProduct(false);
+    setAddProductAsSheet(false);
     setShareProduct(null);
     setHistoryList(null);
   };
@@ -2564,8 +2561,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openAddProduct = (draft = {}) => {
+    const shouldUseSheet = tab === "scan";
     setAddProductDraft(draft || {});
     resetOverlays();
+    setAddProductAsSheet(shouldUseSheet);
     setShowAddProduct(true);
   };
 
@@ -2671,7 +2670,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const scannedProducts = scanHistory.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
   const searchedProducts = products.filter((product) => !scanHistory.some((scan) => scan.productId === product.id));
-  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAddProduct;
+  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || (showAddProduct && !addProductAsSheet);
   const goBack = () => {
     if (viewUser) {
       setViewUser(null);
@@ -2679,6 +2678,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }
     if (showAddProduct) {
       setShowAddProduct(false);
+      setAddProductAsSheet(false);
       return;
     }
     if (showPlans) {
@@ -2744,14 +2744,14 @@ export default function PlasticFreeScannerDatabasePrototype() {
     scrollIncomingScreen(screen);
   };
 
-  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
   </motion.div>
-) : showAddProduct ? (
+) : showAddProduct && !addProductAsSheet ? (
   <motion.div key="add-product" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <AddProductScreen draft={addProductDraft} close={() => { setShowAddProduct(false); setAddProductDraft({}); }} onSubmit={submitPendingProduct} />
+    <AddProductScreen draft={addProductDraft} close={() => { setShowAddProduct(false); setAddProductAsSheet(false); setAddProductDraft({}); }} onSubmit={submitPendingProduct} />
   </motion.div>
 ) : showPlans ? (
   <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
@@ -2810,6 +2810,14 @@ export default function PlasticFreeScannerDatabasePrototype() {
 </div>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
+<AnimatePresence>
+{showAddProduct && addProductAsSheet && <motion.div key="add-product-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 z-40 flex items-end bg-neutral-950/28 backdrop-blur-md" onClick={() => { setShowAddProduct(false); setAddProductAsSheet(false); setAddProductDraft({}); }}>
+  <motion.div key="add-product-sheet" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 360, damping: 34, mass: 0.9 }} className="max-h-[92%] w-full overflow-y-auto rounded-t-[2rem] bg-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.35)]" onClick={(event) => event.stopPropagation()}>
+    <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-white/35" />
+    <AddProductScreen draft={addProductDraft} close={() => { setShowAddProduct(false); setAddProductAsSheet(false); setAddProductDraft({}); }} onSubmit={submitPendingProduct} />
+  </motion.div>
+</motion.div>}
+</AnimatePresence>
 </div>
 }
 </Phone>
