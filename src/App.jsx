@@ -2242,8 +2242,8 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
                   <div className="text-sm text-neutral-500">{getPartMaterialLabel(part)}</div>
                   <div className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${part.severity.tone}`}>{part.severity.label}</div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-sm font-bold text-white shadow-[0_6px_14px_rgba(0,0,0,0.18)] ring-1 ring-black/5 transition group-hover:scale-105 group-hover:bg-neutral-800">
-                  i
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[2px] border-[#0A84FF] bg-transparent text-[21px] font-semibold leading-none text-[#0A84FF] transition group-hover:scale-105 group-hover:border-[#007AFF] group-hover:text-[#007AFF]">
+                  <span className="-mt-px font-serif">i</span>
                 </div>
               </button>
             ))}
