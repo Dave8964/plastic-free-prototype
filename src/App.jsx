@@ -1323,6 +1323,44 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     }
   };
 
+  const startScannerWithBestCamera = async (reader) => {
+    const cameraProfiles = [
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 },
+        },
+        audio: false,
+      },
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      },
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      { video: true, audio: false },
+    ];
+
+    let lastError = null;
+    for (const constraints of cameraProfiles) {
+      try {
+        return await reader.decodeFromConstraints(constraints, videoRef.current, (result) => {
+          if (result) resolveBarcode(result.getText());
+        });
+      } catch (error) {
+        lastError = error;
+        cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+        cameraStreamRef.current = null;
+      }
+    }
+    throw lastError;
+  };
+
   const createMissingProductDraft = (source = openFoodFactsProduct, barcode = scannedBarcode) => ({
     barcode: normalizeBarcode(barcode),
     name: source?.name || "",
@@ -1374,18 +1412,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setIsScanning(true);
     try {
       const reader = getBarcodeReader();
-      const constraints = {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920, min: 640 },
-          height: { ideal: 1080, min: 480 },
-          frameRate: { ideal: 30, min: 15 },
-        },
-        audio: false,
-      };
-      scannerControlsRef.current = await reader.decodeFromConstraints(constraints, videoRef.current, (result) => {
-        if (result) resolveBarcode(result.getText());
-      });
+      scannerControlsRef.current = await startScannerWithBestCamera(reader);
       cameraStreamRef.current = videoRef.current?.srcObject || null;
       torchTrackRef.current = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
       await optimizeCameraTrack(torchTrackRef.current);
