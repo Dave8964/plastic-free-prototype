@@ -1613,15 +1613,84 @@ function PhotoUploadSlot({ label, value, onChange }) {
 function AddProductScreen({ close, draft = {}, onSubmit }) {
   const [flashOn, setFlashOn] = useState(false);
   const [photos, setPhotos] = useState({ front: "", symbols: "" });
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
   const [name, setName] = useState(draft.name || "");
   const [brand, setBrand] = useState(draft.brand || "");
   const [barcode, setBarcode] = useState(draft.barcode || "");
   const [category, setCategory] = useState(draft.packagingScan ? "Other" : "Food and drink");
   const [submitted, setSubmitted] = useState(false);
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const torchTrackRef = useRef(null);
   const setPhoto = (key, value) => setPhotos((current) => ({ ...current, [key]: value }));
   const hasProductIdentity = name.trim() || barcode.trim();
   const canSubmit = draft.packagingEvidence ? hasProductIdentity && (photos.front || photos.symbols) : hasProductIdentity && (photos.front || draft.imageUrl);
-  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><button type="button" className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl">{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <><span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" /><div className="flex flex-col items-center gap-3"><div className="text-5xl">📷</div><div className="text-sm font-medium text-white/80">Add product photos</div></div></>}</button><div className="mt-5 flex gap-3"><Button variant="light">Photo review</Button><button type="button" onClick={() => setFlashOn(!flashOn)} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload the front of the package. Add plastic, material, no-plastic, or recyclability logos if you can find them.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Product name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. UltraShine Dishwasher Detergent" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Brand</span><input value={brand} onChange={(event) => setBrand(event.target.value)} placeholder="e.g. Kirkland Signature" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Barcode number</span><input value={barcode} onChange={(event) => setBarcode(event.target.value)} inputMode="numeric" placeholder="Scan or enter manually" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><div><span className="mb-2 block text-sm font-medium text-neutral-700">Photos</span><p className="mb-3 text-xs leading-5 text-neutral-500">No barcode photo needed when the number was scanned. Material and recycling logos are optional, but helpful when visible.</p><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label={draft.packagingEvidence ? "Front package" : "Front package required"} value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Material logos optional" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Visible material claims, resin codes, recycling logos, plastic-free claims, liner claims, or anything unclear." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label>{submitted && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Submitted and added to your scan history.</div>}<Button onClick={() => { if (!canSubmit) return; setSubmitted(true); onSubmit?.({ ...draft, name, brand, barcode, category }, photos); }} className={`w-full ${!canSubmit ? "opacity-50" : ""}`}>Submit for review</Button></div></div></div>;
+
+  const stopCamera = () => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    torchTrackRef.current = null;
+    setCameraReady(false);
+    setFlashOn(false);
+  };
+
+  const startCamera = async () => {
+    if (!videoRef.current || cameraStreamRef.current) return;
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Camera is not available in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      cameraStreamRef.current = stream;
+      videoRef.current.srcObject = stream;
+      torchTrackRef.current = stream.getVideoTracks()[0] || null;
+      setCameraReady(true);
+      setCameraError("");
+    } catch {
+      setCameraReady(false);
+      setCameraError("Camera access was not enabled.");
+    }
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => startCamera(), 120);
+    return () => {
+      window.clearTimeout(timer);
+      stopCamera();
+    };
+  }, []);
+
+  const takeFrontPhoto = () => {
+    const video = videoRef.current;
+    if (!video || !cameraReady) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 960;
+    canvas.height = video.videoHeight || 720;
+    const context = canvas.getContext("2d");
+    context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setPhoto("front", { name: "Front package photo", type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.88) });
+    triggerHapticFeedback();
+  };
+
+  const toggleFlashlight = async () => {
+    const nextFlashState = !flashOn;
+    try {
+      const track = torchTrackRef.current;
+      const capabilities = track?.getCapabilities?.() || {};
+      if (!track || !capabilities.torch) {
+        setFlashOn(false);
+        return;
+      }
+      await track.applyConstraints({ advanced: [{ torch: nextFlashState }] });
+      setFlashOn(nextFlashState);
+    } catch {
+      setFlashOn(false);
+    }
+  };
+
+  return <div className="relative min-h-[690px] overflow-y-auto bg-neutral-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3f3f46_0%,_#18181b_55%,_#09090b_100%)]" /><div className="relative z-10 px-5 pb-6"><div className="flex items-center justify-between pb-3 pt-6"><h1 className="text-2xl font-semibold tracking-tight">Add product</h1><BackButton onClick={close} variant="light" /></div><div className="mt-8 flex flex-col items-center text-center"><div className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-[2rem] border-2 border-white/80 bg-white/5 shadow-2xl"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${cameraReady ? "opacity-100" : "opacity-30"}`} muted playsInline autoPlay />{photos.front?.dataUrl && <img src={photos.front.dataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}<span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" /><span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" />{!cameraReady && <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-white/80">{cameraError || "Opening camera..."}</div>}</div><div className="mt-5 flex gap-3"><Button onClick={() => photos.front ? setPhoto("front", "") : takeFrontPhoto()} variant="light">{photos.front ? "Retake photo" : "Take photo"}</Button><button type="button" onClick={toggleFlashlight} className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 ${flashOn ? "bg-white text-neutral-950" : "bg-white/10 text-white"}`} aria-label="Toggle light"><FlashlightIcon size={22} /></button></div><p className="mt-5 max-w-[310px] text-sm leading-6 text-white/70">Upload the front of the package. Add plastic, material, no-plastic, or recyclability logos if you can find them.</p>{draft.source && <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">Started from {draft.source}</p>}</div><div className="mt-8 space-y-3 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Product name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. UltraShine Dishwasher Detergent" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Brand</span><input value={brand} onChange={(event) => setBrand(event.target.value)} placeholder="e.g. Kirkland Signature" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Category</span><select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950"><option>Food and drink</option><option>Personal care</option><option>Household cleaning</option><option>Feminine hygiene</option><option>Sexual health</option><option>Baby</option><option>Other</option></select></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Barcode number</span><input value={barcode} onChange={(event) => setBarcode(event.target.value)} inputMode="numeric" placeholder="Scan or enter manually" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label><div><span className="mb-2 block text-sm font-medium text-neutral-700">Photos</span><p className="mb-3 text-xs leading-5 text-neutral-500">No barcode photo needed when the number was scanned. Material and recycling logos are optional, but helpful when visible.</p><div className="grid grid-cols-2 gap-2"><PhotoUploadSlot label={draft.packagingEvidence ? "Front package" : "Front package required"} value={photos.front} onChange={(value) => setPhoto("front", value)} /><PhotoUploadSlot label="Material logos optional" value={photos.symbols} onChange={(value) => setPhoto("symbols", value)} /></div></div><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Packaging notes</span><textarea defaultValue={draft.packagingScan ? "Started from packaging symbol scan. Add resin codes, recycling symbols, liner claims, or compostable markings seen on the package." : ""} placeholder="Visible material claims, resin codes, recycling logos, plastic-free claims, liner claims, or anything unclear." className="min-h-[100px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-950" /></label>{submitted && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">Submitted and added to your scan history.</div>}<Button onClick={() => { if (!canSubmit) return; setSubmitted(true); onSubmit?.({ ...draft, name, brand, barcode, category }, photos); }} className={`w-full ${!canSubmit ? "opacity-50" : ""}`}>Submit for review</Button></div></div></div>;
 }
 
 function HistoryScreen({ products, scans = db.scans, openResult, openScanned, openSearched }) {
