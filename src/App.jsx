@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
-import { BrowserMultiFormatOneDReader } from "@zxing/browser";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
@@ -1300,65 +1300,13 @@ function ScanScreen({ products, openResult, openAddProduct }) {
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, RETAIL_BARCODE_FORMATS);
       hints.set(DecodeHintType.TRY_HARDER, true);
-      barcodeReaderRef.current = new BrowserMultiFormatOneDReader(hints, {
+      barcodeReaderRef.current = new BrowserMultiFormatReader(hints, {
         delayBetweenScanAttempts: 90,
         delayBetweenScanSuccess: 200,
         tryPlayVideoTimeout: 1200,
       });
     }
     return barcodeReaderRef.current;
-  };
-
-  const optimizeCameraTrack = async (track) => {
-    const capabilities = track?.getCapabilities?.() || {};
-    const advanced = [];
-    if (capabilities.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
-    if (capabilities.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
-    if (capabilities.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
-    if (!advanced.length) return;
-    try {
-      await track.applyConstraints({ advanced });
-    } catch {
-      // Camera tuning support varies by browser and device.
-    }
-  };
-
-  const startScannerWithBestCamera = async (reader) => {
-    const cameraProfiles = [
-      {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 },
-        },
-        audio: false,
-      },
-      {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      },
-      { video: { facingMode: { ideal: "environment" } }, audio: false },
-      { video: true, audio: false },
-    ];
-
-    let lastError = null;
-    for (const constraints of cameraProfiles) {
-      try {
-        return await reader.decodeFromConstraints(constraints, videoRef.current, (result) => {
-          if (result) resolveBarcode(result.getText());
-        });
-      } catch (error) {
-        lastError = error;
-        cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-        cameraStreamRef.current = null;
-      }
-    }
-    throw lastError;
   };
 
   const createMissingProductDraft = (source = openFoodFactsProduct, barcode = scannedBarcode) => ({
@@ -1412,10 +1360,11 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setIsScanning(true);
     try {
       const reader = getBarcodeReader();
-      scannerControlsRef.current = await startScannerWithBestCamera(reader);
+      scannerControlsRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+        if (result) resolveBarcode(result.getText());
+      });
       cameraStreamRef.current = videoRef.current?.srcObject || null;
       torchTrackRef.current = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
-      await optimizeCameraTrack(torchTrackRef.current);
       setScanStatus("Point the camera at a UPC or EAN barcode.");
     } catch {
       setIsScanning(false);
