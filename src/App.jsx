@@ -1109,6 +1109,16 @@ function normalizeBarcode(value = "") {
   return String(value).replace(/\D/g, "").replace(/^0+(?=\d{12,13}$)/, "");
 }
 
+function getBarcodeLookupCodes(value = "") {
+  const digits = String(value).replace(/\D/g, "");
+  const normalized = normalizeBarcode(value);
+  return [...new Set([
+    normalized,
+    digits,
+    normalized.length === 12 ? `0${normalized}` : "",
+  ].filter(Boolean))];
+}
+
 function findProductByBarcode(products, barcode) {
   const code = normalizeBarcode(barcode);
   if (!code) return null;
@@ -1119,21 +1129,24 @@ function findProductByBarcode(products, barcode) {
 }
 
 async function fetchOpenFoodFactsProduct(barcode) {
-  const code = normalizeBarcode(barcode);
-  if (!code) return null;
-  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,image_front_url,quantity,categories_tags`);
-  if (!response.ok) throw new Error("Open Food Facts lookup failed.");
-  const data = await response.json();
-  if (data.status !== 1 || !data.product) return null;
-  const product = data.product;
-  return {
-    barcode: code,
-    name: product.product_name || "Unknown product",
-    brand: product.brands?.split(",")[0]?.trim() || "",
-    imageUrl: product.image_front_url || "",
-    quantity: product.quantity || "",
-    source: "Open Food Facts",
-  };
+  const codes = getBarcodeLookupCodes(barcode);
+  for (const code of codes) {
+    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,image_front_url,quantity,categories_tags`);
+    if (response.status === 404) continue;
+    if (!response.ok) throw new Error("Open Food Facts lookup failed.");
+    const data = await response.json();
+    if (data.status !== 1 || !data.product) continue;
+    const product = data.product;
+    return {
+      barcode: normalizeBarcode(code),
+      name: product.product_name || "Unknown product",
+      brand: product.brands?.split(",")[0]?.trim() || "",
+      imageUrl: product.image_front_url || "",
+      quantity: product.quantity || "",
+      source: "Open Food Facts",
+    };
+  }
+  return null;
 }
 
 function readLocalJson(key, fallback) {
