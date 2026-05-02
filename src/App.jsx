@@ -13,9 +13,6 @@ const RETAIL_BARCODE_FORMATS = [
   BarcodeFormat.UPC_E,
   BarcodeFormat.EAN_13,
   BarcodeFormat.EAN_8,
-  BarcodeFormat.CODE_128,
-  BarcodeFormat.CODE_39,
-  BarcodeFormat.ITF,
 ];
 
 const plasticListBrandAliases = {
@@ -1109,6 +1106,20 @@ function normalizeBarcode(value = "") {
   return String(value).replace(/\D/g, "").replace(/^0+(?=\d{12,13}$)/, "");
 }
 
+function hasValidGtinCheckDigit(value = "") {
+  const digits = String(value).replace(/\D/g, "");
+  if (![8, 12, 13, 14].includes(digits.length)) return false;
+  const check = Number(digits.at(-1));
+  const body = digits.slice(0, -1).split("").reverse().map(Number);
+  const sum = body.reduce((total, digit, index) => total + digit * (index % 2 === 0 ? 3 : 1), 0);
+  return (10 - (sum % 10)) % 10 === check;
+}
+
+function normalizeScannedBarcode(value = "") {
+  const code = normalizeBarcode(value);
+  return hasValidGtinCheckDigit(code) ? code : "";
+}
+
 function getBarcodeLookupCodes(value = "") {
   const digits = String(value).replace(/\D/g, "");
   const normalized = normalizeBarcode(value);
@@ -1276,6 +1287,8 @@ function ScanScreen({ products, openResult, openAddProduct }) {
   const videoRef = useRef(null);
   const scannerControlsRef = useRef(null);
   const lastScannedRef = useRef("");
+  const pendingBarcodeRef = useRef({ code: "", count: 0, seenAt: 0 });
+  const resolvingBarcodeRef = useRef(false);
   const barcodeReaderRef = useRef(null);
   const isBarcodeMode = scanMode === "barcode";
   const plasticListFood = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls") || products.find((product) => product.plasticListEvidence?.length) || products[4] || null;
@@ -1332,8 +1345,9 @@ function ScanScreen({ products, openResult, openAddProduct }) {
   });
 
   const resolveBarcode = async (barcode) => {
-    const code = normalizeBarcode(barcode);
-    if (!code || code === lastScannedRef.current) return;
+    const code = normalizeScannedBarcode(barcode);
+    if (!code || code === lastScannedRef.current || resolvingBarcodeRef.current) return;
+    resolvingBarcodeRef.current = true;
     lastScannedRef.current = code;
     setScannedBarcode(code);
     setMatchedProduct(null);
@@ -1362,6 +1376,22 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     stopBarcodeScanner();
   };
 
+  const handleBarcodeCandidate = (barcode) => {
+    const code = normalizeScannedBarcode(barcode);
+    if (!code || resolvingBarcodeRef.current) return;
+    const now = Date.now();
+    const pending = pendingBarcodeRef.current;
+    const isSameCandidate = pending.code === code && now - pending.seenAt < 1600;
+    const nextCount = isSameCandidate ? pending.count + 1 : 1;
+    pendingBarcodeRef.current = { code, count: nextCount, seenAt: now };
+    setScannedBarcode(code);
+    if (nextCount < 2) {
+      setScanStatus(`Barcode detected: ${code}. Hold steady...`);
+      return;
+    }
+    resolveBarcode(code);
+  };
+
   const startBarcodeScanner = async () => {
     if (!videoRef.current) return;
     if (scannerControlsRef.current || isScanning) return;
@@ -1369,12 +1399,14 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setOpenFoodFactsProduct(null);
     setScannedBarcode("");
     lastScannedRef.current = "";
+    pendingBarcodeRef.current = { code: "", count: 0, seenAt: 0 };
+    resolvingBarcodeRef.current = false;
     setScanStatus("Starting camera...");
     setIsScanning(true);
     try {
       const reader = getBarcodeReader();
       scannerControlsRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
-        if (result) resolveBarcode(result.getText());
+        if (result) handleBarcodeCandidate(result.getText());
       });
       cameraStreamRef.current = videoRef.current?.srcObject || null;
       torchTrackRef.current = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
