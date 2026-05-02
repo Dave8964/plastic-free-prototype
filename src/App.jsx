@@ -1,12 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BrowserMultiFormatOneDReader } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { plasticListEvidence, plasticListProductContexts, plasticListProductParts, plasticListProducts } from "./plasticListSeed";
 
 const APP_USER_ID = "user_me";
 const LOCAL_SUBMISSIONS_KEY = "plasticfree.submissions.v1";
 const LOCAL_SCANS_KEY = "plasticfree.scans.v1";
 const LOCAL_FAVORITES_KEY = "plasticfree.favorites.v1";
+const RETAIL_BARCODE_FORMATS = [
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+  BarcodeFormat.ITF,
+];
 
 const plasticListBrandAliases = {
   "Boudin Sourdough": "Boudin",
@@ -1253,6 +1263,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
   const videoRef = useRef(null);
   const scannerControlsRef = useRef(null);
   const lastScannedRef = useRef("");
+  const barcodeReaderRef = useRef(null);
   const isBarcodeMode = scanMode === "barcode";
   const plasticListFood = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls") || products.find((product) => product.plasticListEvidence?.length) || products[4] || null;
   const plasticListPackaging = products.find((product) => product.id === "plasticlist_chick_fil_a_deluxe_sandwich") || products.find((product) => product.plasticListEvidence?.length) || products[2] || null;
@@ -1278,8 +1289,39 @@ function ScanScreen({ products, openResult, openAddProduct }) {
   function stopBarcodeScanner() {
     scannerControlsRef.current?.stop?.();
     scannerControlsRef.current = null;
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    torchTrackRef.current = null;
     setIsScanning(false);
   }
+
+  const getBarcodeReader = () => {
+    if (!barcodeReaderRef.current) {
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, RETAIL_BARCODE_FORMATS);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      barcodeReaderRef.current = new BrowserMultiFormatOneDReader(hints, {
+        delayBetweenScanAttempts: 90,
+        delayBetweenScanSuccess: 200,
+        tryPlayVideoTimeout: 1200,
+      });
+    }
+    return barcodeReaderRef.current;
+  };
+
+  const optimizeCameraTrack = async (track) => {
+    const capabilities = track?.getCapabilities?.() || {};
+    const advanced = [];
+    if (capabilities.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
+    if (capabilities.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
+    if (capabilities.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
+    if (!advanced.length) return;
+    try {
+      await track.applyConstraints({ advanced });
+    } catch {
+      // Camera tuning support varies by browser and device.
+    }
+  };
 
   const createMissingProductDraft = (source = openFoodFactsProduct, barcode = scannedBarcode) => ({
     barcode: normalizeBarcode(barcode),
@@ -1331,12 +1373,22 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setScanStatus("Starting camera...");
     setIsScanning(true);
     try {
-      const reader = new BrowserMultiFormatReader();
-      scannerControlsRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+      const reader = getBarcodeReader();
+      const constraints = {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 },
+          frameRate: { ideal: 30, min: 15 },
+        },
+        audio: false,
+      };
+      scannerControlsRef.current = await reader.decodeFromConstraints(constraints, videoRef.current, (result) => {
         if (result) resolveBarcode(result.getText());
       });
       cameraStreamRef.current = videoRef.current?.srcObject || null;
       torchTrackRef.current = cameraStreamRef.current?.getVideoTracks?.()[0] || null;
+      await optimizeCameraTrack(torchTrackRef.current);
       setScanStatus("Point the camera at a UPC or EAN barcode.");
     } catch {
       setIsScanning(false);
