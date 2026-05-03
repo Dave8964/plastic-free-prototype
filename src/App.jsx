@@ -2729,13 +2729,14 @@ export default function PlasticFreeScannerDatabasePrototype() {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
       writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => item.id !== product.id)]);
     });
+    const hydrated = hydrateProduct(product, parts);
+    productScrollTopRef.current = 0;
+    shouldRestoreProductScrollRef.current = false;
+    setResult(hydrated);
+    setShowResult(true);
     setShowAddProduct(false);
+    setAddProductAsSheet(false);
     setAddProductDraft({});
-    setTimeout(() => {
-      const hydrated = hydrateProduct(product, parts);
-      setResult(hydrated);
-      setShowResult(true);
-    }, 0);
     showToast("Submitted for review and added to History", 2200);
   };
 
