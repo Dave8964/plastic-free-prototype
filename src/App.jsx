@@ -1613,8 +1613,8 @@ function PhotoUploadSlot({ label, value, onChange, accepted = false, showCaption
   const previewUrl = value?.dataUrl || "";
   return (
     <label className={`block rounded-2xl border p-3 text-left transition ${accepted ? "border-emerald-200 bg-emerald-50" : "border-neutral-200 bg-[#f7f3eb]"}`}>
-      <div className="flex items-center gap-3">
-        {previewUrl && <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white shadow-sm"><img src={previewUrl} alt="" className="h-full w-full object-cover" />{accepted && <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[12px] font-bold text-white shadow-sm">✓</span>}</div>}
+      <div className={`flex gap-3 ${previewUrl ? "flex-col items-start" : "items-center"}`}>
+        {previewUrl && <div className="relative h-20 w-full overflow-hidden rounded-xl bg-white shadow-sm"><img src={previewUrl} alt="" className="h-full w-full object-cover" />{accepted && <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[13px] font-bold text-white shadow-sm">✓</span>}</div>}
         <div className="min-w-0 flex-1">
           <span className="block break-words text-sm font-semibold leading-5 text-neutral-950">{label}</span>
           {showCaption && <span className={`mt-1 block truncate text-xs ${accepted ? "font-medium text-emerald-700" : "text-neutral-500"}`}>{accepted ? "Product photo selected" : fileName || "Tap to choose photo"}</span>}
