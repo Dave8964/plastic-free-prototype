@@ -325,6 +325,16 @@ function getScoreTheme(score) {
   return { ring: "#9f2d28", bg: "#f8e8e6", label: "Contains plastic" };
 }
 
+const pendingScoreTheme = { ring: "#8e8e93", bg: "#f2f2f7", label: "Score pending review" };
+
+function isPendingReviewProduct(product = {}) {
+  return product.scorePending === true || product.scoreStatus === "pending_review" || product.verification === "unverified" || String(product.id || "").startsWith("pending_");
+}
+
+function getScoreDisplay(product = {}) {
+  return product.scorePending ? "TBD" : product.score;
+}
+
 const getScoreBadgeStyle = (theme) => ({
   color: theme.ring,
   background: theme.bg,
@@ -795,7 +805,8 @@ function hydrateProduct(product, extraParts = []) {
     plasticlist_boba_guys_fruity_flavored_tea: 20,
     chickfila_deluxe: 18
   };
-  const score = product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? rawScore;
+  const scorePending = isPendingReviewProduct(product);
+  const score = scorePending ? null : product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? rawScore;
   const healthRiskPenalty = Math.abs(normalizedContextPressure) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 7;
   const plasticExposurePenalty = Math.abs(normalizedPartPenalty) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 10;
   const recyclabilityStatus = combineRecyclability(parts.map((part) => part.recyclability));
@@ -808,7 +819,7 @@ function hydrateProduct(product, extraParts = []) {
   ];
   const uniqueRiskFactors = Array.from(new Map(riskFactors.map((factor) => [factor.id, factor])).values());
   const alternatives = product.categoryId === "cat_food_drink" ? ["Choose glass-packaged alternatives when possible.", "Look for 100% bisphenol-free or BPA Non-Intent cans.", "Filter tap water instead of buying bottled water."] : product.categoryId === "cat_cleaning" ? ["Choose loose powder or tablet formats without dissolvable film.", "Use cardboard refills or concentrated cleaners in glass.", "Avoid plastic sponges; try natural loofah, cellulose, or dish cloths."] : product.categoryId === "cat_sexual_health" ? ["For STI prevention, prioritize latex or FDA-cleared synthetic condoms over natural membrane options.", "For latex allergies, compare non-latex synthetic options.", "Treat natural skin options as lower-plastic, not as the best health-protection choice."] : product.categoryId === "cat_personal" || product.categoryId === "cat_hygiene" ? ["Look for paper, glass, metal, or refillable packaging.", "Avoid prolonged skin-contact plastics where possible.", "Choose plastic-free applicators or package-free options."] : ["Choose unpackaged, paper, glass, ceramic, stainless steel, cast iron, wood, or bamboo alternatives.", "Avoid hot food in plastic or plastic-lined containers.", "Have receipts emailed instead of taking thermal paper receipts."];
-  const theme = getScoreTheme(score);
+  const theme = scorePending ? pendingScoreTheme : getScoreTheme(score);
   const hasCanLiner = parts.some((part) => part.partType === "liner" && (part.material?.linerRisk || part.materialId === "mixed" || part.plastic?.code === "UNKNOWN"));
   const hotCannedFoodTerms = ["soup", "broth", "stew", "chili", "sauce", "gravy"];
   const hasHotCannedFoodSignal = hotCannedFoodTerms.some((term) => name.includes(term)) || uniqueRiskFactors.some((factor) => ["hot_food", "heat_soup"].includes(factor.id));
@@ -823,7 +834,7 @@ function hydrateProduct(product, extraParts = []) {
     ...evidenceSources,
   ].filter((link) => link.source);
   const uniqueSources = Array.from(new Map(sources.map((link) => [link.source.id, link])).values());
-  return { ...product, category, parts, score, theme, rating: theme.label, sources: uniqueSources, splitScores, riskFactors: uniqueRiskFactors, heatFlags, plasticListEvidence, hasCanLiner, hasHighRiskCanScenario, alternatives, community: { scans: Math.max(3, parts.length * 3), favorites: db.saves.filter((save) => save.productId === product.id).length } };
+  return { ...product, category, parts, score, scorePending, theme, rating: theme.label, sources: uniqueSources, splitScores, riskFactors: uniqueRiskFactors, heatFlags, plasticListEvidence, hasCanLiner, hasHighRiskCanScenario, alternatives, community: { scans: Math.max(3, parts.length * 3), favorites: db.saves.filter((save) => save.productId === product.id).length } };
 }
 
 
@@ -1050,12 +1061,12 @@ function useSwipeBack(onBack, enabled = true) {
   };
 }
 
-function ScoreRing({ score, onClick, delay = 0.15, featured = false }) {
-  const value = clampScore(score);
-  const theme = getScoreTheme(value);
+function ScoreRing({ score, onClick, delay = 0.15, featured = false, pending = false }) {
+  const value = pending ? 0 : clampScore(score);
+  const theme = pending ? pendingScoreTheme : getScoreTheme(value);
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / 100) * circumference;
+  const offset = pending ? 0 : circumference - (value / 100) * circumference;
   const handleClick = () => {
     triggerHapticFeedback();
     onClick?.();
@@ -1077,8 +1088,8 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false }) {
             </linearGradient>
           </defs>
         )}
-        <circle cx="70" cy="70" r={radius} stroke="#ebe6dc" strokeWidth="13" fill="none" />
-        <motion.circle cx="70" cy="70" r={radius} stroke={featured ? "url(#nearIdealScoreGradient)" : theme.ring} strokeWidth="13" fill="none" strokeLinecap="round" strokeDasharray={circumference} initial={{ strokeDashoffset: circumference }} animate={{ strokeDashoffset: offset }} transition={{ delay: delay + 0.12, type: "spring", stiffness: 58, damping: 16 }} />
+        <circle cx="70" cy="70" r={radius} stroke={pending ? "#f2f2f7" : "#ebe6dc"} strokeWidth="13" fill="none" />
+        <motion.circle cx="70" cy="70" r={radius} stroke={featured ? "url(#nearIdealScoreGradient)" : theme.ring} strokeWidth="13" fill="none" strokeLinecap="round" strokeDasharray={circumference} initial={{ strokeDashoffset: pending ? 0 : circumference }} animate={{ strokeDashoffset: offset }} transition={{ delay: delay + 0.12, type: "spring", stiffness: 58, damping: 16 }} />
       </svg>
       {featured && (
         <motion.div
@@ -1090,8 +1101,8 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false }) {
         />
       )}
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay + 0.28, duration: 0.28 }} className="absolute text-center">
-        <div className="text-[42px] font-semibold tracking-[-0.06em] text-neutral-950">{value}</div>
-        <div className="text-xs font-medium text-neutral-400">/ 100</div>
+        <div className={`font-semibold ${pending ? "text-[32px] tracking-[-0.03em] text-neutral-500" : "text-[42px] tracking-[-0.06em] text-neutral-950"}`}>{pending ? "TBD" : value}</div>
+        <div className="text-xs font-medium text-neutral-400">{pending ? "Review" : "/ 100"}</div>
       </motion.div>
     </motion.div>
   );
@@ -1099,7 +1110,7 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false }) {
 }
 
 function ProductRow({ product, onClick }) {
-  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{product.name}</span></div><div className="mt-0.5 text-sm text-neutral-500">{product.brand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></div></Card></FastTapButton>;
+  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{product.name}</span></div><div className="mt-0.5 text-sm text-neutral-500">{product.brand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div></Card></FastTapButton>;
 }
 
 function normalizeBarcode(value = "") {
@@ -1261,8 +1272,9 @@ function createPendingProductFromDraft(draft = {}, photos = {}) {
     confidence: "Low",
     verification: "unverified",
     barcode: normalizeBarcode(draft.barcode),
-    scoreOverride: 52,
-    scoringNote: "Pending community submission. This temporary score uses a conservative placeholder until photos and packaging details are reviewed.",
+    scorePending: true,
+    scoreStatus: "pending_review",
+    scoringNote: "Score pending review. Packaging photos and material evidence need to be checked before a rating is assigned.",
     submittedPhotos: photos,
   };
   const parts = [
@@ -1554,7 +1566,7 @@ function ScoreBreakdownPanel({ product, close }) {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
         <Card>
           <div className="flex flex-col items-center p-6 text-center">
-            <ScoreRing score={product.score} delay={0.1} />
+            <ScoreRing score={product.score} delay={0.1} pending={product.scorePending} />
             <motion.h2 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36, duration: 0.28 }} className="mt-5 text-2xl font-semibold tracking-tight text-neutral-950">Overall score</motion.h2>
             <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44, duration: 0.28 }} className="mt-2 max-w-[280px] text-sm leading-5 text-neutral-500">The main score stays simple. These show what drives it.</motion.p>
           </div>
@@ -1592,7 +1604,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
   const toggleTag = (tag) => setActiveTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
   const filtered = products.filter((product) => {
     const matchesQuery = product.name.toLowerCase().includes(q) || product.brand.toLowerCase().includes(q) || product.category?.name.toLowerCase().includes(q);
-    const passesPlasticFree = !plasticFreeOnly || product.score >= 80;
+    const passesPlasticFree = !plasticFreeOnly || (!product.scorePending && product.score >= 80);
     const passesTags = activeTags.every((tag) => {
       if (tag === "Available in Canada") return product.country === "CA";
       if (tag === "Personal care") return product.category?.name === "Personal care";
@@ -1828,7 +1840,7 @@ function ProductImagePreview({ product, close }) {
 }
 
 function SocialProductPreview({ product, onClick }) {
-  return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{product.score}</div></button>;
+  return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></button>;
 }
 
 function getProductSwapType(product) {
@@ -1844,7 +1856,7 @@ function getProductSwapType(product) {
 }
 
 function getBetterSwap(products) {
-  const groups = products.reduce((acc, product) => {
+  const groups = products.filter((product) => !product.scorePending).reduce((acc, product) => {
     const type = getProductSwapType(product);
     if (!type) return acc;
     acc[type] = [...(acc[type] || []), product];
@@ -1875,13 +1887,13 @@ function getTrendingProducts(products) {
     "plasticlist_coca_cola_original",
     "plasticlist_enfamil_neuro_pro_587g_infant_formula_can"
   ];
-  const picked = ids.map((id) => products.find((product) => product.id === id)).filter(Boolean);
-  const fallback = products.filter((product) => !picked.some((item) => item.id === product.id)).slice(0, 10 - picked.length);
+  const picked = ids.map((id) => products.find((product) => product.id === id && !product.scorePending)).filter(Boolean);
+  const fallback = products.filter((product) => !product.scorePending && !picked.some((item) => item.id === product.id)).slice(0, 10 - picked.length);
   return [...picked, ...fallback].slice(0, 10);
 }
 
 function CompactScoreCircle({ product, className = "" }) {
-  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner ${className}`} style={getScoreBadgeStyle(product.theme)}>{product.score}</div>;
+  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner ${className}`} style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div>;
 }
 
 function SocialHighlightHeader({ title, copy }) {
@@ -2230,10 +2242,10 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   }, [showImagePreview]);
 
   if (!product) return <UnknownScreen close={close} />;
-  if (showScoreDetails) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
+  if (showScoreDetails && !product.scorePending) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
 
   const isFavorite = favoriteIds.includes(product.id);
-  const isNearIdealScore = product.score >= 92;
+  const isNearIdealScore = !product.scorePending && product.score >= 92;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
   const recyclingSummaryStatuses = recyclingRules.map((rule, index) => isAttachedCanLiner(product.parts[index], product) ? "limited" : rule.status);
   const recyclingStatus = combineRecyclability(recyclingSummaryStatuses);
@@ -2372,32 +2384,38 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
           </button>
 
           <div className="mt-5 flex justify-center">
-            <ScoreRing score={product.score} onClick={() => setShowScoreDetails(true)} featured={isNearIdealScore} />
+            <ScoreRing score={product.score} onClick={product.scorePending ? undefined : () => setShowScoreDetails(true)} featured={isNearIdealScore} pending={product.scorePending} />
           </div>
 
           <div className="mt-2 flex flex-col items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHapticFeedback();
-                setShowScoreDetails(true);
-              }}
-              className="text-xs font-medium text-neutral-500 underline underline-offset-4"
-            >
-              Tap score for detailed breakdown
-            </button>
-
-            <div className="flex flex-wrap justify-center gap-1.5">
-              <motion.div
-                initial={{ opacity: 0, y: 4, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: 0.28, duration: 0.35, ease: "easeOut" }}
-                className="rounded-full px-4 py-2 text-sm font-medium"
-                style={getScoreBadgeStyle(product.theme)}
+            {product.scorePending ? (
+              <div className="rounded-full bg-neutral-100 px-4 py-2 text-xs font-semibold text-neutral-500 shadow-inner">Score pending review</div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  setShowScoreDetails(true);
+                }}
+                className="text-xs font-medium text-neutral-500 underline underline-offset-4"
               >
-                {product.rating}
-              </motion.div>
-            </div>
+                Tap score for detailed breakdown
+              </button>
+            )}
+
+            {!product.scorePending && (
+              <div className="flex flex-wrap justify-center gap-1.5">
+                <motion.div
+                  initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.28, duration: 0.35, ease: "easeOut" }}
+                  className="rounded-full px-4 py-2 text-sm font-medium"
+                  style={getScoreBadgeStyle(product.theme)}
+                >
+                  {product.rating}
+                </motion.div>
+              </div>
+            )}
           </div>
 
           <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{product.name}</h2>
