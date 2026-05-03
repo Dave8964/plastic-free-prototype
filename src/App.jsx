@@ -1613,12 +1613,12 @@ function SearchScreen({ products, openResult, openAddProduct }) {
 function MaterialLogoExampleMark({ mark }) {
   const resinMatch = mark.match(/(\d)/);
   if (resinMatch) {
-    return <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300/70 bg-white/45 px-1.5 py-1 text-[10px] font-semibold leading-none text-neutral-400"><svg width="18" height="16" viewBox="0 0 24 22" fill="none" aria-hidden="true"><path d="M12 2.5 21 18H3L12 2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><text x="12" y="15" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor">{resinMatch[1]}</text></svg><span>{mark.replace(/\s+\d$/, "")}</span></span>;
+    return <span className="inline-flex items-center gap-0.5 rounded-full border border-neutral-300/60 bg-white/35 px-1 py-0.5 text-[9px] font-semibold leading-none text-neutral-400"><svg width="13" height="12" viewBox="0 0 24 22" fill="none" aria-hidden="true"><path d="M12 2.5 21 18H3L12 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /><text x="12" y="15" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor">{resinMatch[1]}</text></svg><span>{mark.replace(/\s+\d$/, "")}</span></span>;
   }
   if (mark === "BPA-free") {
-    return <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300/70 bg-white/45 px-1.5 py-1 text-[10px] font-semibold leading-none text-neutral-400"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.7" /><path d="M5.2 14.8 14.8 5.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg><span>BPA-free</span></span>;
+    return <span className="inline-flex items-center gap-0.5 rounded-full border border-neutral-300/60 bg-white/35 px-1 py-0.5 text-[9px] font-semibold leading-none text-neutral-400"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.8" /><path d="M5.2 14.8 14.8 5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg><span>BPA-free</span></span>;
   }
-  return <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300/70 bg-white/45 px-1.5 py-1 text-[10px] font-semibold leading-none text-neutral-400"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7.2 3.6 9.9 2l2.7 4.7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><path d="M15.7 9.1 18 10.8l-2.8 4.8H9.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><path d="M6.6 15.6H3.8L2 12.6l2.7-4.7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg><span>{mark}</span></span>;
+  return <span className="inline-flex items-center gap-0.5 rounded-full border border-neutral-300/60 bg-white/35 px-1 py-0.5 text-[9px] font-semibold leading-none text-neutral-400"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6.5 5.2A5.5 5.5 0 0 1 15 6.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M14.7 3.9 15.6 6.4l-2.6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M13.5 14.8A5.5 5.5 0 0 1 5 13.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M5.3 16.1 4.4 13.6l2.6-.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg><span>{mark}</span></span>;
 }
 
 function PhotoUploadSlot({ label, value, onChange, accepted = false, showCaption = true, exampleMarks = [] }) {
@@ -1631,7 +1631,7 @@ function PhotoUploadSlot({ label, value, onChange, accepted = false, showCaption
         <div className="min-w-0 flex-1">
           <span className="block break-words text-sm font-semibold leading-5 text-neutral-950">{label}</span>
           {showCaption && <span className={`mt-1 block truncate text-xs ${accepted ? "font-medium text-emerald-700" : "text-neutral-500"}`}>{accepted ? "Product photo selected" : fileName || "Tap to choose photo"}</span>}
-          {!previewUrl && exampleMarks.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{exampleMarks.map((mark) => <MaterialLogoExampleMark key={mark} mark={mark} />)}</div>}
+          {!previewUrl && exampleMarks.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{exampleMarks.map((mark) => <MaterialLogoExampleMark key={mark} mark={mark} />)}</div>}
         </div>
       </div>
       <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={async (event) => onChange(await readPhotoFile(event.target.files?.[0]))} />
