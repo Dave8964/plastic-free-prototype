@@ -8,12 +8,19 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
       const userId = url.searchParams.get("userId") || "user_me";
-      const rows = await sql`
-        SELECT id, user_id, product, parts, photos, created_at, updated_at
-        FROM product_submissions
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
-      `;
+      const admin = url.searchParams.get("admin") === "1";
+      const rows = admin
+        ? await sql`
+          SELECT id, user_id, product, parts, photos, created_at, updated_at
+          FROM product_submissions
+          ORDER BY updated_at DESC
+        `
+        : await sql`
+          SELECT id, user_id, product, parts, photos, created_at, updated_at
+          FROM product_submissions
+          WHERE user_id = ${userId}
+          ORDER BY created_at DESC
+        `;
       sendJson(res, 200, { submissions: rows });
       return;
     }

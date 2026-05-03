@@ -1206,11 +1206,18 @@ async function fetchBackendSubmissions() {
   return data.submissions || [];
 }
 
+async function fetchAllBackendSubmissions() {
+  const response = await fetch("/api/submissions?admin=1");
+  if (!response.ok) throw new Error("Backend review queue unavailable.");
+  const data = await response.json();
+  return data.submissions || [];
+}
+
 async function saveBackendSubmission(submission) {
   const response = await fetch("/api/submissions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: APP_USER_ID, ...submission }),
+    body: JSON.stringify({ userId: submission.user_id || APP_USER_ID, ...submission }),
   });
   if (!response.ok) throw new Error("Backend submission save failed.");
   const data = await response.json();
@@ -2104,11 +2111,94 @@ function FavoritesScreen({ products, openResult, close, favoriteIds = null, loca
   return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title={localeCopy.favorites} right={<BackButton onClick={close} />} /><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map((category) => <button type="button" key={category} onClick={() => setActiveCategory(category)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm ${activeCategory === category ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{category}</button>)}</div><Card><div className="p-4"><h3 className="mb-3 font-semibold text-neutral-950">{activeCategory === "All" ? `All ${localeCopy.favoritesLower}` : activeCategory}</h3><div className="space-y-2">{visibleProducts.length ? visibleProducts.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="p-5 text-center text-sm text-neutral-500">No {localeCopy.favoritesLower} yet.</p>}</div></div></Card></div>;
 }
 
-function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, profile, favoriteIds = [], localeCopy = getLocaleCopy() }) {
+function ReviewPhotoThumb({ photo, label }) {
+  if (!photo?.dataUrl) return <div className="flex h-24 items-center justify-center rounded-2xl bg-[#f7f3eb] text-xs font-medium text-neutral-400">{label}</div>;
+  return <button type="button" onClick={() => window.open(photo.dataUrl, "_blank")} className="h-24 overflow-hidden rounded-2xl bg-[#f7f3eb] text-left shadow-inner"><img src={photo.dataUrl} alt={label} className="h-full w-full object-cover" /></button>;
+}
+
+function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate }) {
+  const product = submission.product || {};
+  const photos = submission.photos || product.submittedPhotos || {};
+  const [score, setScore] = useState(product.scoreOverride ?? "");
+  const [note, setNote] = useState(product.scoringNote || "");
+  const status = product.scoreStatus || (product.scorePending ? "pending_review" : "reviewed");
+  const canApprove = score !== "" && Number(score) >= 0 && Number(score) <= 100;
+
+  return (
+    <Card>
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-400">{status.replaceAll("_", " ")}</div>
+            <h3 className="mt-1 line-clamp-2 text-lg font-semibold leading-tight text-neutral-950">{product.name || "Unnamed product"}</h3>
+            <p className="text-sm text-neutral-500">{product.brand || "Brand missing"}</p>
+          </div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-500 shadow-inner">{product.scorePending ? "TBD" : product.scoreOverride ?? "OK"}</div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-neutral-500">
+          <div className="rounded-2xl bg-[#f7f3eb] p-3"><span className="block font-medium text-neutral-950">Barcode</span>{product.barcode || "None"}</div>
+          <div className="rounded-2xl bg-[#f7f3eb] p-3"><span className="block font-medium text-neutral-950">Submitted</span>{submission.updated_at ? new Date(submission.updated_at).toLocaleDateString() : "Recent"}</div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <ReviewPhotoThumb photo={photos.front} label="Front packaging" />
+          <ReviewPhotoThumb photo={photos.symbols} label="Material logos" />
+        </div>
+
+        <div className="mt-4 grid grid-cols-[96px_1fr] gap-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Score</span>
+            <input value={score} onChange={(event) => setScore(event.target.value)} inputMode="numeric" placeholder="0-100" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base font-semibold outline-none focus:border-neutral-950" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Review note</span>
+            <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why this score is assigned" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base outline-none focus:border-neutral-950" />
+          </label>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <button type="button" onClick={() => canApprove && onApprove(submission, clampScore(score), note)} className={`inline-flex min-h-10 items-center justify-center rounded-full px-2 py-2 text-xs font-semibold tracking-[-0.01em] transition ${canApprove ? "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(0,0,0,0.16)] active:scale-[0.98]" : "bg-neutral-300 text-neutral-500"}`}>Approve</button>
+          <Button onClick={() => onNeedsInfo(submission, note)} variant="outline" className="bg-white px-2 text-xs">Needs info</Button>
+          <Button onClick={() => onRejectDuplicate(submission, note)} variant="ghost" className="px-2 text-xs text-red-700 hover:bg-red-50">Duplicate</Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function AdminReviewScreen({ submissions, close, onRefresh, onApprove, onNeedsInfo, onRejectDuplicate }) {
+  const [filter, setFilter] = useState("pending");
+  const pending = submissions.filter((submission) => isPendingReviewProduct(submission.product));
+  const visible = filter === "pending" ? pending : submissions;
+
+  return (
+    <div className="min-h-[690px] overflow-y-auto px-5 pb-5">
+      <Header title="Review queue" right={<BackButton onClick={close} />} />
+      <div className="mb-4 rounded-3xl bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-2xl font-semibold tracking-tight text-neutral-950">{pending.length}</div>
+            <div className="text-sm text-neutral-500">products waiting for review</div>
+          </div>
+          <Button onClick={onRefresh} variant="outline" className="bg-white">Refresh</Button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 rounded-full bg-[#f7f3eb] p-1">
+          {["pending", "all"].map((option) => <button key={option} type="button" onClick={() => setFilter(option)} className={`rounded-full py-2 text-sm font-semibold capitalize ${filter === option ? "bg-neutral-950 text-white" : "text-neutral-500"}`}>{option}</button>)}
+        </div>
+      </div>
+      <div className="space-y-3">
+        {visible.length ? visible.map((submission) => <AdminReviewCard key={submission.id} submission={submission} onApprove={onApprove} onNeedsInfo={onNeedsInfo} onRejectDuplicate={onRejectDuplicate} />) : <div className="rounded-3xl bg-white p-8 text-center text-sm text-neutral-500 shadow-sm">No products in this queue.</div>}
+      </div>
+    </div>
+  );
+}
+
+function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, openAdminReview, pendingReviewCount = 0, profile, favoriteIds = [], localeCopy = getLocaleCopy() }) {
   const following = db.follows.filter((follow) => follow.followerId === "user_me").length;
   const followers = db.follows.filter((follow) => follow.followedId === "user_me").length + 12;
   const saved = favoriteIds.map((productId) => products.find((product) => product.id === productId)).filter(Boolean);
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{db.scans.length}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{saved.length}</div><div className="text-xs text-neutral-500">{localeCopy.favorites}</div></div></div></div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{db.scans.length}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{saved.length}</div><div className="text-xs text-neutral-500">{localeCopy.favorites}</div></div></div></div></Card><button type="button" onClick={openAdminReview} className="mt-5 flex w-full items-center justify-between rounded-3xl bg-neutral-950 p-4 text-left text-white shadow-sm transition active:scale-[0.99]"><div><div className="font-semibold">Developer review queue</div><p className="mt-1 text-sm text-neutral-300">Approve submitted products from phone or desktop.</p></div><span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-3 text-sm font-bold text-neutral-950">{pendingReviewCount}</span></button><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
 }
 
 
@@ -2574,7 +2664,8 @@ function UserProfileView({ user, products, badges = [], highlightBadge, openResu
 export default function PlasticFreeScannerDatabasePrototype() {
   const [submittedProducts, setSubmittedProducts] = useState([]);
   const [submittedParts, setSubmittedParts] = useState([]);
-  const products = useMemo(() => [...db.products, ...submittedProducts].map((product) => hydrateProduct(product, submittedParts)), [submittedProducts, submittedParts]);
+  const [reviewSubmissions, setReviewSubmissions] = useState([]);
+  const products = useMemo(() => [...db.products, ...submittedProducts].filter((product) => product.scoreStatus !== "rejected_duplicate").map((product) => hydrateProduct(product, submittedParts)), [submittedProducts, submittedParts]);
   const [tab, setTab] = useState("search");
   const [result, setResult] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -2590,6 +2681,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [showPlans, setShowPlans] = useState(false);
+  const [showAdminReview, setShowAdminReview] = useState(false);
   const [viewUser, setViewUser] = useState(null);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [addProductAsSheet, setAddProductAsSheet] = useState(false);
@@ -2618,12 +2710,14 @@ export default function PlasticFreeScannerDatabasePrototype() {
       try {
         const submissions = await fetchBackendSubmissions();
         if (!active) return;
+        setReviewSubmissions(submissions);
         setSubmittedProducts(submissions.map((submission) => submission.product).filter(Boolean));
         setSubmittedParts(submissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
         writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
       } catch {
         const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
         if (!active) return;
+        setReviewSubmissions(localSubmissions);
         setSubmittedProducts(localSubmissions.map((submission) => submission.product).filter(Boolean));
         setSubmittedParts(localSubmissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
       }
@@ -2684,6 +2778,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setShowBadges(false);
     setShowNotifications(false);
     setShowPlans(false);
+    setShowAdminReview(false);
     setShowAddProduct(false);
     setAddProductAsSheet(false);
     setShareProduct(null);
@@ -2716,6 +2811,43 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setAddProductDraft({});
   };
 
+  const refreshReviewSubmissions = async () => {
+    try {
+      const submissions = await fetchAllBackendSubmissions();
+      setReviewSubmissions(submissions);
+      setSubmittedProducts(submissions.map((submission) => submission.product).filter(Boolean));
+      setSubmittedParts(submissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
+      writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
+      return submissions;
+    } catch {
+      const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+      setReviewSubmissions(localSubmissions);
+      return localSubmissions;
+    }
+  };
+
+  const openAdminReview = () => {
+    resetOverlays();
+    setShowResult(false);
+    setShowAdminReview(true);
+    if (typeof window !== "undefined" && window.location.hash !== "#admin") window.history.replaceState(null, "", "#admin");
+    refreshReviewSubmissions();
+  };
+
+  const closeAdminReview = () => {
+    setShowAdminReview(false);
+    if (typeof window !== "undefined" && window.location.hash === "#admin") window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  };
+
+  useEffect(() => {
+    const syncAdminHash = () => {
+      if (window.location.hash === "#admin") openAdminReview();
+    };
+    syncAdminHash();
+    window.addEventListener("hashchange", syncAdminHash);
+    return () => window.removeEventListener("hashchange", syncAdminHash);
+  }, []);
+
   const handleAddProductSheetTouchStart = (event) => {
     const touch = event.touches?.[0];
     if (!touch) return;
@@ -2740,6 +2872,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const submitPendingProduct = (draft, photos) => {
     const { product, parts } = createPendingProductFromDraft(draft, photos);
     const submission = { id: product.id, product, parts, photos };
+    setReviewSubmissions((current) => current.some((item) => item.id === product.id) ? current.map((item) => item.id === product.id ? submission : item) : [submission, ...current]);
     setSubmittedProducts((current) => current.some((item) => item.id === product.id) ? current.map((item) => item.id === product.id ? product : item) : [product, ...current]);
     setSubmittedParts((current) => [...current.filter((part) => part.productId !== product.id), ...parts]);
     recordScan(product.id);
@@ -2756,6 +2889,50 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setAddProductAsSheet(false);
     setAddProductDraft({});
     showToast("Submitted for review and added to History", 2200);
+  };
+
+  const persistReviewedSubmission = (submission, productUpdates, message) => {
+    const updatedProduct = { ...(submission.product || {}), ...productUpdates };
+    const updatedSubmission = { ...submission, product: updatedProduct, parts: Array.isArray(submission.parts) ? submission.parts : [], photos: submission.photos || {} };
+    setReviewSubmissions((current) => current.map((item) => item.id === submission.id ? updatedSubmission : item));
+    setSubmittedProducts((current) => current.some((item) => item.id === updatedProduct.id) ? current.map((item) => item.id === updatedProduct.id ? updatedProduct : item) : [updatedProduct, ...current]);
+    setSubmittedParts((current) => [...current.filter((part) => part.productId !== updatedProduct.id), ...updatedSubmission.parts]);
+    saveBackendSubmission(updatedSubmission).catch(() => {
+      const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+      writeLocalJson(LOCAL_SUBMISSIONS_KEY, [updatedSubmission, ...localSubmissions.filter((item) => item.id !== updatedSubmission.id)]);
+    });
+    showToast(message, 2200);
+  };
+
+  const approveReviewSubmission = (submission, score, note) => {
+    persistReviewedSubmission(submission, {
+      scoreOverride: clampScore(score),
+      scorePending: false,
+      scoreStatus: "approved",
+      verification: "expert_verified",
+      confidence: "High",
+      scoringNote: note || "Reviewed by developer and assigned a rating score."
+    }, "Product approved and score published");
+  };
+
+  const markReviewNeedsInfo = (submission, note) => {
+    persistReviewedSubmission(submission, {
+      scorePending: true,
+      scoreStatus: "needs_more_info",
+      verification: "unverified",
+      confidence: "Low",
+      scoringNote: note || "Needs more packaging evidence before a score can be assigned."
+    }, "Marked as needing more info");
+  };
+
+  const rejectReviewDuplicate = (submission, note) => {
+    persistReviewedSubmission(submission, {
+      scorePending: false,
+      scoreStatus: "rejected_duplicate",
+      verification: "expert_verified",
+      confidence: "Low",
+      scoringNote: note || "Rejected as a duplicate submission."
+    }, "Marked as duplicate");
   };
 
   const openPartDetail = (product, part) => {
@@ -2831,7 +3008,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const scannedProducts = scanHistory.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
   const searchedProducts = products.filter((product) => !scanHistory.some((scan) => scan.productId === product.id));
-  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || (showAddProduct && !addProductAsSheet);
+  const pendingReviewCount = reviewSubmissions.filter((submission) => isPendingReviewProduct(submission.product)).length;
+  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
   const goBack = () => {
     if (viewUser) {
       setViewUser(null);
@@ -2843,6 +3021,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }
     if (showPlans) {
       setShowPlans(false);
+      return;
+    }
+    if (showAdminReview) {
+      closeAdminReview();
       return;
     }
     if (showNotifications) {
@@ -2917,6 +3099,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
   <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <PlansScreen close={() => setShowPlans(false)} />
   </motion.div>
+) : showAdminReview ? (
+  <motion.div key="admin-review" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
+    <AdminReviewScreen submissions={reviewSubmissions} close={closeAdminReview} onRefresh={refreshReviewSubmissions} onApprove={approveReviewSubmission} onNeedsInfo={markReviewNeedsInfo} onRejectDuplicate={rejectReviewDuplicate} />
+  </motion.div>
 ) : showNotifications ? (
   <motion.div key="notifications" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <NotificationsScreen close={() => setShowNotifications(false)} />
@@ -2963,7 +3149,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
     {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
-    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} profile={profile} favoriteIds={favoriteIds} localeCopy={localeCopy} />}
+    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} localeCopy={localeCopy} />}
   </motion.div>
 )}
 </AnimatePresence>
