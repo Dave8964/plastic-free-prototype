@@ -325,10 +325,10 @@ function getScoreTheme(score) {
   return { ring: "#9f2d28", bg: "#f8e8e6", label: "Contains plastic" };
 }
 
-const pendingScoreTheme = { ring: "#8e8e93", bg: "#f2f2f7", label: "Score pending review" };
+const pendingScoreTheme = { ring: "#c7c7cc", bg: "#f7f7f8", label: "Score pending review" };
 
 function isPendingReviewProduct(product = {}) {
-  return product.scorePending === true || product.scoreStatus === "pending_review" || product.verification === "unverified" || String(product.id || "").startsWith("pending_");
+  return product.scorePending === true || ["pending_review", "needs_more_info"].includes(product.scoreStatus) || product.verification === "unverified" || String(product.id || "").startsWith("pending_");
 }
 
 function getScoreDisplay(product = {}) {
@@ -1088,7 +1088,7 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false, pending = f
             </linearGradient>
           </defs>
         )}
-        <circle cx="70" cy="70" r={radius} stroke={pending ? "#f2f2f7" : "#ebe6dc"} strokeWidth="13" fill="none" />
+        <circle cx="70" cy="70" r={radius} stroke={pending ? "#f7f7f8" : "#ebe6dc"} strokeWidth="13" fill="none" />
         <motion.circle cx="70" cy="70" r={radius} stroke={featured ? "url(#nearIdealScoreGradient)" : theme.ring} strokeWidth="13" fill="none" strokeLinecap="round" strokeDasharray={circumference} initial={{ strokeDashoffset: pending ? 0 : circumference }} animate={{ strokeDashoffset: offset }} transition={{ delay: delay + 0.12, type: "spring", stiffness: 58, damping: 16 }} />
       </svg>
       {featured && (
@@ -1101,8 +1101,8 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false, pending = f
         />
       )}
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay + 0.28, duration: 0.28 }} className="absolute text-center">
-        <div className={`font-semibold ${pending ? "text-[32px] tracking-[-0.03em] text-neutral-500" : "text-[42px] tracking-[-0.06em] text-neutral-950"}`}>{pending ? "TBD" : value}</div>
-        <div className="text-xs font-medium text-neutral-400">{pending ? "Review" : "/ 100"}</div>
+        <div className={`font-semibold ${pending ? "text-[32px] tracking-[-0.03em] text-neutral-400" : "text-[42px] tracking-[-0.06em] text-neutral-950"}`}>{pending ? "TBD" : value}</div>
+        {!pending && <div className="text-xs font-medium text-neutral-400">/ 100</div>}
       </motion.div>
     </motion.div>
   );
@@ -2119,10 +2119,14 @@ function ReviewPhotoThumb({ photo, label }) {
 function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate }) {
   const product = submission.product || {};
   const photos = submission.photos || product.submittedPhotos || {};
-  const [score, setScore] = useState(product.scoreOverride ?? "");
+  const pending = isPendingReviewProduct(product);
+  const [name, setName] = useState(product.name || "");
+  const [brand, setBrand] = useState(product.brand || "");
+  const [score, setScore] = useState(pending ? "0" : product.scoreOverride ?? "");
   const [note, setNote] = useState(product.scoringNote || "");
   const status = product.scoreStatus || (product.scorePending ? "pending_review" : "reviewed");
   const canApprove = score !== "" && Number(score) >= 0 && Number(score) <= 100;
+  const reviewEdits = { name: name.trim(), brand: brand.trim() };
 
   return (
     <Card>
@@ -2130,10 +2134,10 @@ function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-400">{status.replaceAll("_", " ")}</div>
-            <h3 className="mt-1 line-clamp-2 text-lg font-semibold leading-tight text-neutral-950">{product.name || "Unnamed product"}</h3>
-            <p className="text-sm text-neutral-500">{product.brand || "Brand missing"}</p>
+            <h3 className="mt-1 line-clamp-2 text-lg font-semibold leading-tight text-neutral-950">{name || "Unnamed product"}</h3>
+            <p className="text-sm text-neutral-500">{brand || "Brand missing"}</p>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-500 shadow-inner">{product.scorePending ? "TBD" : product.scoreOverride ?? "OK"}</div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f7f8] text-xs font-bold text-neutral-400 shadow-inner">{pending ? "TBD" : product.scoreOverride ?? "OK"}</div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-neutral-500">
@@ -2144,6 +2148,17 @@ function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate
         <div className="mt-3 grid grid-cols-2 gap-2">
           <ReviewPhotoThumb photo={photos.front} label="Front packaging" />
           <ReviewPhotoThumb photo={photos.symbols} label="Material logos" />
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Product name</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Product name" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base outline-none focus:border-neutral-950" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Brand</span>
+            <input value={brand} onChange={(event) => setBrand(event.target.value)} placeholder="Brand" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base outline-none focus:border-neutral-950" />
+          </label>
         </div>
 
         <div className="mt-4 grid grid-cols-[96px_1fr] gap-2">
@@ -2158,9 +2173,9 @@ function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => canApprove && onApprove(submission, clampScore(score), note)} className={`inline-flex min-h-10 items-center justify-center rounded-full px-2 py-2 text-xs font-semibold tracking-[-0.01em] transition ${canApprove ? "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(0,0,0,0.16)] active:scale-[0.98]" : "bg-neutral-300 text-neutral-500"}`}>Approve</button>
-          <Button onClick={() => onNeedsInfo(submission, note)} variant="outline" className="bg-white px-2 text-xs">Needs info</Button>
-          <Button onClick={() => onRejectDuplicate(submission, note)} variant="ghost" className="px-2 text-xs text-red-700 hover:bg-red-50">Duplicate</Button>
+          <button type="button" onClick={() => canApprove && onApprove(submission, clampScore(score), note, reviewEdits)} className={`inline-flex min-h-10 items-center justify-center rounded-full px-2 py-2 text-xs font-semibold tracking-[-0.01em] transition ${canApprove ? "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(0,0,0,0.16)] active:scale-[0.98]" : "bg-neutral-300 text-neutral-500"}`}>Approve</button>
+          <Button onClick={() => onNeedsInfo(submission, note, reviewEdits)} variant="outline" className="bg-white px-2 text-xs">Needs info</Button>
+          <Button onClick={() => onRejectDuplicate(submission, note, reviewEdits)} variant="ghost" className="px-2 text-xs text-red-700 hover:bg-red-50">Duplicate</Button>
         </div>
       </div>
     </Card>
@@ -2904,8 +2919,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     showToast(message, 2200);
   };
 
-  const approveReviewSubmission = (submission, score, note) => {
+  const approveReviewSubmission = (submission, score, note, edits = {}) => {
     persistReviewedSubmission(submission, {
+      ...(edits.name ? { name: edits.name } : {}),
+      ...(edits.brand ? { brand: edits.brand } : {}),
       scoreOverride: clampScore(score),
       scorePending: false,
       scoreStatus: "approved",
@@ -2915,8 +2932,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }, "Product approved and score published");
   };
 
-  const markReviewNeedsInfo = (submission, note) => {
+  const markReviewNeedsInfo = (submission, note, edits = {}) => {
     persistReviewedSubmission(submission, {
+      ...(edits.name ? { name: edits.name } : {}),
+      ...(edits.brand ? { brand: edits.brand } : {}),
       scorePending: true,
       scoreStatus: "needs_more_info",
       verification: "unverified",
@@ -2925,8 +2944,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }, "Marked as needing more info");
   };
 
-  const rejectReviewDuplicate = (submission, note) => {
+  const rejectReviewDuplicate = (submission, note, edits = {}) => {
     persistReviewedSubmission(submission, {
+      ...(edits.name ? { name: edits.name } : {}),
+      ...(edits.brand ? { brand: edits.brand } : {}),
       scorePending: false,
       scoreStatus: "rejected_duplicate",
       verification: "expert_verified",
