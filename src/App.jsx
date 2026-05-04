@@ -328,7 +328,11 @@ function getScoreTheme(score) {
 const pendingScoreTheme = { ring: "#c7c7cc", bg: "#f7f7f8", label: "Score pending review" };
 
 function isPendingReviewProduct(product = {}) {
-  return product.scorePending === true || ["pending_review", "needs_more_info"].includes(product.scoreStatus) || product.verification === "unverified" || String(product.id || "").startsWith("pending_");
+  return product.scorePending === true || ["pending_review", "needs_more_info", "photo_review"].includes(product.scoreStatus) || product.verification === "unverified" || String(product.id || "").startsWith("pending_");
+}
+
+function isPublishableSubmissionProduct(product = {}) {
+  return product.scoreStatus !== "photo_review" && product.scoreStatus !== "rejected_duplicate";
 }
 
 function getScoreDisplay(product = {}) {
@@ -938,7 +942,7 @@ function Phone({ children }) {
 
 function ProductImage({ src, alt, className }) {
   const [error, setError] = useState(false);
-  return src && !error ? <img src={src} alt={alt} className={className} onError={() => setError(true)} /> : <div className={`flex items-center justify-center bg-[#ece8df] text-2xl text-neutral-500 ${className}`}>📷</div>;
+  return src && !error ? <img src={src} alt={alt} className={className} onError={() => setError(true)} /> : <div className={`flex items-center justify-center bg-[#f1eee7] text-neutral-400 ${className}`}><svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 25.5 32 17l14 8.5v17L32 51l-14-8.5v-17Z" /><path d="m18 25.5 14 8.5 14-8.5" /><path d="M32 34v17" /><path d="M24 21l14 8.5" /></svg></div>;
 }
 
 function triggerHapticFeedback() {
@@ -1846,6 +1850,62 @@ function ProductImagePreview({ product, close }) {
   );
 }
 
+function hasProductPhoto(product = {}) {
+  return Boolean(product.imageUrl);
+}
+
+function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
+  const [photo, setPhoto] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
+  const submitPhoto = async () => {
+    if (!photo || isSubmitting) return;
+    setIsSubmitting(true);
+    await onSubmit(product, photo);
+    setIsSubmitting(false);
+    close();
+  };
+
+  return (
+    <motion.div
+      className="fixed left-1/2 top-0 z-[90] flex h-[100dvh] w-full max-w-[430px] -translate-x-1/2 items-end overflow-hidden bg-neutral-950/30 backdrop-blur-md md:top-1/2 md:h-[min(760px,calc(100dvh-4rem))] md:-translate-y-1/2 md:rounded-[2.35rem]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={close}
+    >
+      <motion.div
+        initial={{ y: "105%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "105%" }}
+        transition={{ type: "spring", stiffness: 300, damping: 34, mass: 1 }}
+        className="w-full rounded-t-[2rem] bg-white p-5 text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.28)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-neutral-200" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold tracking-tight">Add product photo</h3>
+            <p className="mt-1 text-sm leading-5 text-neutral-500">Submit a front photo for admin approval.</p>
+          </div>
+          <button type="button" onClick={close} className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-700"><CloseIcon size={18} /></button>
+        </div>
+
+        <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 flex min-h-44 w-full items-center justify-center overflow-hidden rounded-3xl bg-[#f7f3eb] text-sm font-semibold text-neutral-500 shadow-inner">
+          {photo?.dataUrl ? <img src={photo.dataUrl} alt="" className="h-52 w-full object-cover" /> : "Choose or take photo"}
+        </button>
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={async (event) => setPhoto(await readPhotoFile(event.target.files?.[0]))} />
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="bg-white">{photo ? "Change photo" : "Add photo"}</Button>
+          <Button onClick={submitPhoto} className={photo ? "" : "bg-neutral-300 text-neutral-500 shadow-none hover:bg-neutral-300"}>{isSubmitting ? "Submitting..." : "Submit"}</Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function SocialProductPreview({ product, onClick }) {
   return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></button>;
 }
@@ -2119,6 +2179,7 @@ function ReviewPhotoThumb({ photo, label }) {
 function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate }) {
   const product = submission.product || {};
   const photos = submission.photos || product.submittedPhotos || {};
+  const isPhotoReview = product.scoreStatus === "photo_review";
   const pending = isPendingReviewProduct(product);
   const [name, setName] = useState(product.name || "");
   const [brand, setBrand] = useState(product.brand || "");
@@ -2161,19 +2222,21 @@ function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate
           </label>
         </div>
 
-        <div className="mt-4 grid grid-cols-[96px_1fr] gap-2">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-neutral-500">Score</span>
-            <input value={score} onChange={(event) => setScore(event.target.value)} inputMode="numeric" placeholder="0-100" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base font-semibold outline-none focus:border-neutral-950" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-neutral-500">Review note</span>
-            <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why this score is assigned" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base outline-none focus:border-neutral-950" />
-          </label>
-        </div>
+        {!isPhotoReview && (
+          <div className="mt-4 grid grid-cols-[96px_1fr] gap-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-neutral-500">Score</span>
+              <input value={score} onChange={(event) => setScore(event.target.value)} inputMode="numeric" placeholder="0-100" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base font-semibold outline-none focus:border-neutral-950" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-neutral-500">Review note</span>
+              <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why this score is assigned" className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-base outline-none focus:border-neutral-950" />
+            </label>
+          </div>
+        )}
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => canApprove && onApprove(submission, clampScore(score), note, reviewEdits)} className={`inline-flex min-h-10 items-center justify-center rounded-full px-2 py-2 text-xs font-semibold tracking-[-0.01em] transition ${canApprove ? "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(0,0,0,0.16)] active:scale-[0.98]" : "bg-neutral-300 text-neutral-500"}`}>Approve</button>
+          <button type="button" onClick={() => (isPhotoReview || canApprove) && onApprove(submission, clampScore(score), note, reviewEdits)} className={`inline-flex min-h-10 items-center justify-center rounded-full px-2 py-2 text-xs font-semibold tracking-[-0.01em] transition ${isPhotoReview || canApprove ? "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(0,0,0,0.16)] active:scale-[0.98]" : "bg-neutral-300 text-neutral-500"}`}>{isPhotoReview ? "Approve photo" : "Approve"}</button>
           <Button onClick={() => onNeedsInfo(submission, note, reviewEdits)} variant="outline" className="bg-white px-2 text-xs">Needs info</Button>
           <Button onClick={() => onRejectDuplicate(submission, note, reviewEdits)} variant="ghost" className="px-2 text-xs text-red-700 hover:bg-red-50">Duplicate</Button>
         </div>
@@ -2316,17 +2379,22 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
 }
 runTests();
 
-function ResultScreen({ product, close, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess }) {
+function ResultScreen({ product, close, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess, onSubmitProductPhoto }) {
   const [useLocation, setUseLocation] = useState(false);
   const [selectedRecyclingLocation, setSelectedRecyclingLocation] = useState("toronto_on");
   const [locationStatus, setLocationStatus] = useState("idle");
   const [locationMessage, setLocationMessage] = useState("");
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const [showPhotoSubmit, setShowPhotoSubmit] = useState(false);
   const recyclingLocation = getRecyclingLocation(selectedRecyclingLocation);
   const handleSwipeBack = () => {
     if (showImagePreview) {
       setShowImagePreview(false);
+      return;
+    }
+    if (showPhotoSubmit) {
+      setShowPhotoSubmit(false);
       return;
     }
     if (showScoreDetails) {
@@ -2480,7 +2548,8 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
             type="button"
             onClick={() => {
               triggerHapticFeedback();
-              setShowImagePreview(true);
+              if (hasProductPhoto(product)) setShowImagePreview(true);
+              else setShowPhotoSubmit(true);
             }}
             className="mx-auto flex items-start justify-center rounded-[2rem] transition active:scale-[0.98]"
             aria-label="Open larger product image"
@@ -2533,6 +2602,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
 
       <AnimatePresence>
         {showImagePreview && <ProductImagePreview product={product} close={() => setShowImagePreview(false)} />}
+        {showPhotoSubmit && <ProductPhotoSubmissionSheet product={product} close={() => setShowPhotoSubmit(false)} onSubmit={onSubmitProductPhoto} />}
       </AnimatePresence>
 
       <div className="mt-5 overflow-hidden rounded-3xl bg-white shadow-sm">
@@ -2680,7 +2750,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [submittedProducts, setSubmittedProducts] = useState([]);
   const [submittedParts, setSubmittedParts] = useState([]);
   const [reviewSubmissions, setReviewSubmissions] = useState([]);
-  const products = useMemo(() => [...db.products, ...submittedProducts].filter((product) => product.scoreStatus !== "rejected_duplicate").map((product) => hydrateProduct(product, submittedParts)), [submittedProducts, submittedParts]);
+  const products = useMemo(() => {
+    const byId = new Map();
+    [...db.products, ...submittedProducts].filter(isPublishableSubmissionProduct).forEach((product) => byId.set(product.id, product));
+    return Array.from(byId.values()).map((product) => hydrateProduct(product, submittedParts));
+  }, [submittedProducts, submittedParts]);
   const [tab, setTab] = useState("search");
   const [result, setResult] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -2726,14 +2800,14 @@ export default function PlasticFreeScannerDatabasePrototype() {
         const submissions = await fetchBackendSubmissions();
         if (!active) return;
         setReviewSubmissions(submissions);
-        setSubmittedProducts(submissions.map((submission) => submission.product).filter(Boolean));
+        setSubmittedProducts(submissions.map((submission) => submission.product).filter(isPublishableSubmissionProduct));
         setSubmittedParts(submissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
         writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
       } catch {
         const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
         if (!active) return;
         setReviewSubmissions(localSubmissions);
-        setSubmittedProducts(localSubmissions.map((submission) => submission.product).filter(Boolean));
+        setSubmittedProducts(localSubmissions.map((submission) => submission.product).filter(isPublishableSubmissionProduct));
         setSubmittedParts(localSubmissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
       }
 
@@ -2830,7 +2904,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     try {
       const submissions = await fetchAllBackendSubmissions();
       setReviewSubmissions(submissions);
-      setSubmittedProducts(submissions.map((submission) => submission.product).filter(Boolean));
+      setSubmittedProducts(submissions.map((submission) => submission.product).filter(isPublishableSubmissionProduct));
       setSubmittedParts(submissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
       writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
       return submissions;
@@ -2906,6 +2980,24 @@ export default function PlasticFreeScannerDatabasePrototype() {
     showToast("Submitted for review and added to History", 2200);
   };
 
+  const submitProductPhotoForReview = async (product, photo) => {
+    const submissionProduct = {
+      ...product,
+      targetProductId: product.id,
+      imageUrl: product.imageUrl || "",
+      scoreStatus: "photo_review",
+      scoringNote: "User submitted a product photo for admin approval.",
+      submittedAt: new Date().toISOString(),
+    };
+    const submission = { id: `photo_${product.id}_${Date.now()}`, product: submissionProduct, parts: [], photos: { front: photo } };
+    setReviewSubmissions((current) => [submission, ...current.filter((item) => item.id !== submission.id)]);
+    await saveBackendSubmission(submission).catch(() => {
+      const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+      writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => item.id !== submission.id)]);
+    });
+    showToast("Photo submitted for review", 2200);
+  };
+
   const persistReviewedSubmission = (submission, productUpdates, message) => {
     const updatedProduct = { ...(submission.product || {}), ...productUpdates };
     const updatedSubmission = { ...submission, product: updatedProduct, parts: Array.isArray(submission.parts) ? submission.parts : [], photos: submission.photos || {} };
@@ -2920,6 +3012,19 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const approveReviewSubmission = (submission, score, note, edits = {}) => {
+    const photo = submission.photos?.front;
+    if (submission.product?.scoreStatus === "photo_review") {
+      persistReviewedSubmission(submission, {
+        ...(edits.name ? { name: edits.name } : {}),
+        ...(edits.brand ? { brand: edits.brand } : {}),
+        id: submission.product.targetProductId || submission.product.id,
+        imageUrl: photo?.dataUrl || submission.product.imageUrl,
+        scoreStatus: "approved_photo",
+        verification: submission.product.verification === "unverified" ? "community_verified" : submission.product.verification,
+        scoringNote: note || "Product photo reviewed and approved."
+      }, "Product photo approved");
+      return;
+    }
     persistReviewedSubmission(submission, {
       ...(edits.name ? { name: edits.name } : {}),
       ...(edits.brand ? { brand: edits.brand } : {}),
@@ -2933,6 +3038,15 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const markReviewNeedsInfo = (submission, note, edits = {}) => {
+    if (submission.product?.scoreStatus === "photo_review") {
+      persistReviewedSubmission(submission, {
+        ...(edits.name ? { name: edits.name } : {}),
+        ...(edits.brand ? { brand: edits.brand } : {}),
+        scoreStatus: "photo_review",
+        scoringNote: note || "Photo needs more review before it can be approved."
+      }, "Marked photo as needing more info");
+      return;
+    }
     persistReviewedSubmission(submission, {
       ...(edits.name ? { name: edits.name } : {}),
       ...(edits.brand ? { brand: edits.brand } : {}),
@@ -3162,7 +3276,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showResult ? (
   <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
-    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} />
+    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>

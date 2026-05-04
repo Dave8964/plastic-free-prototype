@@ -31,15 +31,16 @@ export default async function handler(req, res) {
       const product = body.product;
       const parts = Array.isArray(body.parts) ? body.parts : [];
       const photos = body.photos || {};
+      const submissionId = body.id || product?.id;
 
-      if (!product?.id) {
+      if (!submissionId || !product?.id) {
         sendJson(res, 400, { error: "Submission requires a product id." });
         return;
       }
 
       const rows = await sql`
         INSERT INTO product_submissions (id, user_id, product, parts, photos, updated_at)
-        VALUES (${product.id}, ${userId}, CAST(${JSON.stringify(product)} AS jsonb), CAST(${JSON.stringify(parts)} AS jsonb), CAST(${JSON.stringify(photos)} AS jsonb), NOW())
+        VALUES (${submissionId}, ${userId}, CAST(${JSON.stringify(product)} AS jsonb), CAST(${JSON.stringify(parts)} AS jsonb), CAST(${JSON.stringify(photos)} AS jsonb), NOW())
         ON CONFLICT (id) DO UPDATE SET
           user_id = EXCLUDED.user_id,
           product = EXCLUDED.product,
