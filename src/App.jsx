@@ -942,17 +942,15 @@ function Phone({ children }) {
 
 function ProductImage({ src, alt, className, onMissing }) {
   const [error, setError] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const fitClass = className?.includes("object-contain") ? "object-contain" : "object-cover";
   useEffect(() => {
     setError(false);
-    setLoaded(false);
     if (!src) onMissing?.();
   }, [src]);
   return (
     <div className={`relative flex items-center justify-center overflow-hidden bg-[#f1eee7] text-neutral-400 ${className}`}>
-      {src && !error && <img src={src} alt="" className={`absolute inset-0 h-full w-full transition-opacity ${fitClass} ${loaded ? "opacity-100" : "opacity-0"}`} onLoad={() => setLoaded(true)} onError={() => { setError(true); onMissing?.(); }} />}
-      {(!src || error || !loaded) && (
+      {src && !error && <img src={src} alt={alt || ""} className={`absolute inset-0 h-full w-full ${fitClass}`} onError={() => { setError(true); onMissing?.(); }} />}
+      {(!src || error) && (
         <svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-label={alt || "Image unavailable"}>
           <circle cx="32" cy="32" r="25" />
           <path d="M22 27h4l2.5-4h7L38 27h4a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4V31a4 4 0 0 1 4-4Z" />
