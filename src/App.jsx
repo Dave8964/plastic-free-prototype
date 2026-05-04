@@ -942,11 +942,26 @@ function Phone({ children }) {
 
 function ProductImage({ src, alt, className, onMissing }) {
   const [error, setError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const fitClass = className?.includes("object-contain") ? "object-contain" : "object-cover";
   useEffect(() => {
     setError(false);
+    setLoaded(false);
     if (!src) onMissing?.();
   }, [src]);
-  return src && !error ? <img src={src} alt={alt} className={className} onError={() => { setError(true); onMissing?.(); }} /> : <div className={`flex items-center justify-center bg-[#f1eee7] text-neutral-400 ${className}`}><svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 25.5 32 17l14 8.5v17L32 51l-14-8.5v-17Z" /><path d="m18 25.5 14 8.5 14-8.5" /><path d="M32 34v17" /><path d="M24 21l14 8.5" /></svg></div>;
+  return (
+    <div className={`relative flex items-center justify-center overflow-hidden bg-[#f1eee7] text-neutral-400 ${className}`}>
+      {src && !error && <img src={src} alt="" className={`absolute inset-0 h-full w-full transition-opacity ${fitClass} ${loaded ? "opacity-100" : "opacity-0"}`} onLoad={() => setLoaded(true)} onError={() => { setError(true); onMissing?.(); }} />}
+      {(!src || error || !loaded) && (
+        <svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-label={alt || "Image unavailable"}>
+          <circle cx="32" cy="32" r="25" />
+          <path d="M22 27h4l2.5-4h7L38 27h4a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4V31a4 4 0 0 1 4-4Z" />
+          <circle cx="32" cy="36" r="5.5" />
+          <path d="M16 48 48 16" />
+        </svg>
+      )}
+    </div>
+  );
 }
 
 function triggerHapticFeedback() {
@@ -1861,7 +1876,52 @@ function hasProductPhoto(product = {}) {
 function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
   const [photo, setPhoto] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
   const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    async function startCamera() {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Camera unavailable");
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        cameraStreamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setCameraReady(true);
+      } catch {
+        if (active) setCameraError("Camera permission needed");
+      }
+    }
+    startCamera();
+    return () => {
+      active = false;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    };
+  }, []);
+
+  const takePhoto = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 960;
+    canvas.height = video.videoHeight || 720;
+    const context = canvas.getContext("2d");
+    context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setPhoto({ name: "Product photo", type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.88) });
+    triggerHapticFeedback();
+  };
+
   const submitPhoto = async () => {
     if (!photo || isSubmitting) return;
     setIsSubmitting(true);
@@ -1896,13 +1956,24 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
           <button type="button" onClick={close} className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-700"><CloseIcon size={18} /></button>
         </div>
 
-        <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 flex min-h-44 w-full items-center justify-center overflow-hidden rounded-3xl bg-[#f7f3eb] text-sm font-semibold text-neutral-500 shadow-inner">
-          {photo?.dataUrl ? <img src={photo.dataUrl} alt="" className="h-52 w-full object-cover" /> : "Choose or take photo"}
-        </button>
-        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={async (event) => setPhoto(await readPhotoFile(event.target.files?.[0]))} />
+        <div className="mt-4 overflow-hidden rounded-3xl bg-neutral-950 shadow-inner">
+          <div className="relative h-64">
+            <video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${cameraReady ? "opacity-100" : "opacity-25"}`} muted playsInline autoPlay />
+            {photo?.dataUrl && <img src={photo.dataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+            {!cameraReady && !photo?.dataUrl && <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white/70">{cameraError || "Opening camera..."}</div>}
+            {photo?.dataUrl && <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/10"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-4xl font-semibold text-white shadow-lg">✓</span></div>}
+          </div>
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={async (event) => setPhoto(await readPhotoFile(event.target.files?.[0]))} />
+
+        <div className="mt-4 flex justify-center">
+          <button type="button" onClick={photo ? () => setPhoto(null) : takePhoto} className={`flex h-16 w-16 items-center justify-center rounded-full border-[5px] border-white bg-white shadow-[0_8px_24px_rgba(0,0,0,0.14)] ring-2 ring-neutral-200 transition active:scale-95 ${photo ? "text-red-600" : "text-neutral-950"}`} aria-label={photo ? "Retake photo" : "Take photo"}>
+            {photo ? <CloseIcon size={22} /> : <span className="h-10 w-10 rounded-full bg-neutral-950" />}
+          </button>
+        </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="bg-white">{photo ? "Change photo" : "Add photo"}</Button>
+          <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="bg-white">{photo ? "Change from library" : "Add photo from library"}</Button>
           <Button onClick={submitPhoto} className={photo ? "" : "bg-neutral-300 text-neutral-500 shadow-none hover:bg-neutral-300"}>{isSubmitting ? "Submitting..." : "Submit"}</Button>
         </div>
       </motion.div>
