@@ -940,9 +940,13 @@ function Phone({ children }) {
   );
 }
 
-function ProductImage({ src, alt, className }) {
+function ProductImage({ src, alt, className, onMissing }) {
   const [error, setError] = useState(false);
-  return src && !error ? <img src={src} alt={alt} className={className} onError={() => setError(true)} /> : <div className={`flex items-center justify-center bg-[#f1eee7] text-neutral-400 ${className}`}><svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 25.5 32 17l14 8.5v17L32 51l-14-8.5v-17Z" /><path d="m18 25.5 14 8.5 14-8.5" /><path d="M32 34v17" /><path d="M24 21l14 8.5" /></svg></div>;
+  useEffect(() => {
+    setError(false);
+    if (!src) onMissing?.();
+  }, [src]);
+  return src && !error ? <img src={src} alt={alt} className={className} onError={() => { setError(true); onMissing?.(); }} /> : <div className={`flex items-center justify-center bg-[#f1eee7] text-neutral-400 ${className}`}><svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 25.5 32 17l14 8.5v17L32 51l-14-8.5v-17Z" /><path d="m18 25.5 14 8.5 14-8.5" /><path d="M32 34v17" /><path d="M24 21l14 8.5" /></svg></div>;
 }
 
 function triggerHapticFeedback() {
@@ -2387,6 +2391,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [showPhotoSubmit, setShowPhotoSubmit] = useState(false);
+  const [imageMissing, setImageMissing] = useState(!hasProductPhoto(product));
   const recyclingLocation = getRecyclingLocation(selectedRecyclingLocation);
   const handleSwipeBack = () => {
     if (showImagePreview) {
@@ -2418,7 +2423,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   if (showScoreDetails && !product.scorePending) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
 
   const isFavorite = favoriteIds.includes(product.id);
-  const productPhotoMissing = !hasProductPhoto(product);
+  const productPhotoMissing = imageMissing || !hasProductPhoto(product);
   const isNearIdealScore = !product.scorePending && product.score >= 92;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
   const recyclingSummaryStatuses = recyclingRules.map((rule, index) => isAttachedCanLiner(product.parts[index], product) ? "limited" : rule.status);
@@ -2549,13 +2554,13 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
             type="button"
             onClick={() => {
               triggerHapticFeedback();
-              if (hasProductPhoto(product)) setShowImagePreview(true);
-              else setShowPhotoSubmit(true);
+              if (productPhotoMissing) setShowPhotoSubmit(true);
+              else setShowImagePreview(true);
             }}
             className="relative mx-auto flex items-start justify-center rounded-[2rem] transition active:scale-[0.98]"
             aria-label={productPhotoMissing ? "Add product image" : "Open larger product image"}
           >
-            <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" />
+            <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" onMissing={() => setImageMissing(true)} />
             {productPhotoMissing && (
               <span className="absolute inset-x-3 bottom-3 rounded-full bg-white/92 px-3 py-1.5 text-xs font-semibold text-neutral-950 shadow-sm ring-1 ring-black/5 backdrop-blur">
                 Add image +
