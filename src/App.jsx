@@ -2418,6 +2418,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   if (showScoreDetails && !product.scorePending) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
 
   const isFavorite = favoriteIds.includes(product.id);
+  const productPhotoMissing = !hasProductPhoto(product);
   const isNearIdealScore = !product.scorePending && product.score >= 92;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
   const recyclingSummaryStatuses = recyclingRules.map((rule, index) => isAttachedCanLiner(product.parts[index], product) ? "limited" : rule.status);
@@ -2551,10 +2552,15 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
               if (hasProductPhoto(product)) setShowImagePreview(true);
               else setShowPhotoSubmit(true);
             }}
-            className="mx-auto flex items-start justify-center rounded-[2rem] transition active:scale-[0.98]"
-            aria-label="Open larger product image"
+            className="relative mx-auto flex items-start justify-center rounded-[2rem] transition active:scale-[0.98]"
+            aria-label={productPhotoMissing ? "Add product image" : "Open larger product image"}
           >
             <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" />
+            {productPhotoMissing && (
+              <span className="absolute inset-x-3 bottom-3 rounded-full bg-white/92 px-3 py-1.5 text-xs font-semibold text-neutral-950 shadow-sm ring-1 ring-black/5 backdrop-blur">
+                Add image +
+              </span>
+            )}
           </button>
 
           <div className="mt-5 flex justify-center">
