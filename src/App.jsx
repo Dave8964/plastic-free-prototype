@@ -796,7 +796,7 @@ function hydrateProduct(product, extraParts = []) {
     plasticListPenalty
   ) : null;
   const calibrationScores = {
-    paper_soap: 96,
+    paper_soap: 98,
     old_spice: 32,
     always_ultra: 12,
     allens_apple: 19,
@@ -2427,7 +2427,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [dishwasher?.parts.some((part) => part.displayName === "Pod film"), "dishwasher should include pod film"],
     [db.users.some((user) => user.role === "Health food creator"), "suggested creators should exist"],
     [getFavoritesByCategory(products)["Personal care"]?.length >= 1, "favorites should group by product type"],
-    [products.find(p => p.id === "paper_soap")?.score === 96, "paper-wrapped soap should use near-ideal calibrated score"],
+    [products.find(p => p.id === "paper_soap")?.score === 98, "paper-wrapped soap should use near-ideal calibrated score"],
     [products.find(p => p.id === "paper_soap")?.category?.name === "Personal care", "paper-wrapped soap should live under Personal care"],
     [scoringRubric.nearIdeal.range === "95–98", "scoring rubric should define near-ideal packaging range"],
     
