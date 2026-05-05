@@ -2099,21 +2099,159 @@ function Field({ label, type = "text", placeholder, defaultValue = "" }) {
   return <label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">{label}</span><input type={type} placeholder={placeholder} defaultValue={defaultValue} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" /></label>;
 }
 
-function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProfile, locale, setLocale, localeCopy }) {
+function PasswordEyeButton({ visible, onClick, label }) {
+  return (
+    <button type="button" onClick={onClick} className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-100" aria-label={label}>
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
+        {!visible && <path d="M4 4l16 16" />}
+      </svg>
+    </button>
+  );
+}
+
+function PasswordField({ label, value, onChange, visible, setVisible, placeholder }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-neutral-700">{label}</span>
+      <div className="relative">
+        <input type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 pr-12 text-base outline-none focus:border-neutral-950" />
+        <PasswordEyeButton visible={visible} onClick={() => setVisible(!visible)} label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} />
+      </div>
+    </label>
+  );
+}
+
+function RequirementRow({ met, children }) {
+  return <div className={`flex items-center gap-2 text-xs ${met ? "text-emerald-700" : "text-neutral-500"}`}><span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${met ? "bg-emerald-100" : "bg-neutral-100"}`}>{met ? "✓" : "•"}</span><span>{children}</span></div>;
+}
+
+function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProfile, localeCopy }) {
+  const [darkMode, setDarkMode] = useState(Boolean(profile.darkMode));
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [shareActivity, setShareActivity] = useState(true);
-  const [firstName, setFirstName] = useState(profile.firstName);
-  const [lastName, setLastName] = useState(profile.lastName);
+  const initialFullName = `${profile.firstName} ${profile.lastName}`.trim();
+  const [fullName, setFullName] = useState(initialFullName);
   const [email, setEmail] = useState(profile.email);
   const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState(profile.password);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [nameUpdated, setNameUpdated] = useState(false);
   const [emailUpdated, setEmailUpdated] = useState(false);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
 
-  const updatedButtonClass = "bg-white text-neutral-300 border border-neutral-200 shadow-none hover:bg-white";
+  const nameDirty = fullName.trim() !== initialFullName;
+  const emailDirty = email.trim() !== profile.email;
+  const passwordDirty = currentPassword || newPassword || confirmPassword;
+  const hasLength = newPassword.length >= 8;
+  const hasUppercase = /[A-Z]/.test(newPassword);
+  const hasNumberOrSpecial = /[\d\W_]/.test(newPassword);
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+  const canUpdatePassword = Boolean(currentPassword) && hasLength && hasUppercase && hasNumberOrSpecial && passwordsMatch;
 
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Settings" right={<BackButton onClick={close} />} /><div className="space-y-4"><SettingsSection title="Update name"><div className="grid grid-cols-2 gap-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">First</span><input value={firstName} onChange={(event) => { setFirstName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Last</span><input value={lastName} onChange={(event) => { setLastName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ firstName, lastName }); setNameUpdated(true); }} className={`mt-4 w-full ${nameUpdated ? updatedButtonClass : ""}`}>{nameUpdated ? <span className="text-neutral-300">Name updated!</span> : "Update name"}</Button></SettingsSection><SettingsSection title="Update email address"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Email address</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" /></label><Button onClick={() => { updateProfile({ email }); setEmailUpdated(true); }} className={`mt-4 w-full ${emailUpdated ? updatedButtonClass : ""}`}>{emailUpdated ? <span className="text-neutral-300">Email updated!</span> : "Update email"}</Button></SettingsSection><SettingsSection title="Regional spelling"><p className="mb-3 text-sm text-neutral-500">Controls labels like {localeCopy.favorite}/{locale === "CA" ? "Favorite" : "Favourite"} across the app.</p><div className="grid grid-cols-2 rounded-full bg-[#f7f3eb] p-1"><button type="button" onClick={() => setLocale("CA")} className={`rounded-full py-2 text-sm font-semibold ${locale === "CA" ? "bg-neutral-950 text-white" : "text-neutral-500"}`}>Canada</button><button type="button" onClick={() => setLocale("US")} className={`rounded-full py-2 text-sm font-semibold ${locale === "US" ? "bg-neutral-950 text-white" : "text-neutral-500"}`}>USA</button></div></SettingsSection><SettingsSection title="Change password"><div className="space-y-3"><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">Current password</span><input type="password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter current password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-neutral-700">New password</span><input type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordUpdated(false); }} placeholder="Enter new password" className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" /></label></div><Button onClick={() => { updateProfile({ password: newPassword }); setPasswordUpdated(true); }} className={`mt-4 w-full ${passwordUpdated ? updatedButtonClass : ""}`}>{passwordUpdated ? <span className="text-neutral-300">Password updated!</span> : "Update password"}</Button></SettingsSection><SettingsSection title="Notifications & Privacy"><div className="mb-4 flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Push notifications</div><p className="mt-1 text-sm text-neutral-500">Get updates about product reviews, comments, and new matches.</p></div><ToggleSwitch checked={notificationsOn} onClick={() => setNotificationsOn(!notificationsOn)} label="Toggle notifications" /></div><div className="flex items-center justify-between gap-4"><div><div className="font-medium text-neutral-950">Share activity</div><p className="mt-1 text-sm text-neutral-500">Show your scans and {localeCopy.favoritesLower} in your social feed.</p></div><ToggleSwitch checked={shareActivity} onClick={() => setShareActivity(!shareActivity)} label="Toggle share activity" /></div></SettingsSection><Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button><Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button></div></div>;
+  const saveName = () => {
+    const [firstName = "", ...lastNameParts] = fullName.trim().split(/\s+/);
+    updateProfile({ firstName, lastName: lastNameParts.join(" ") });
+    setNameUpdated(true);
+  };
+
+  const saveEmail = () => {
+    updateProfile({ email: email.trim() });
+    setEmailUpdated(true);
+  };
+
+  const savePassword = () => {
+    if (!canUpdatePassword) return;
+    updateProfile({ password: newPassword });
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordUpdated(true);
+  };
+
+  const updateDarkMode = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    updateProfile({ darkMode: next });
+  };
+
+  return (
+    <div className="min-h-[690px] overflow-y-auto px-5 pb-5">
+      <Header title="Settings" right={<BackButton onClick={close} />} />
+      <div className="space-y-4">
+        <SettingsSection title="Appearance">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium text-neutral-950">{darkMode ? "Dark mode" : "Light mode"}</div>
+              <p className="mt-1 text-sm text-neutral-500">Use your preferred app appearance.</p>
+            </div>
+            <ToggleSwitch checked={darkMode} onClick={updateDarkMode} label="Toggle dark mode" />
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Update name">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-700">Full name</span>
+            <input value={fullName} onChange={(event) => { setFullName(event.target.value); setNameUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" />
+          </label>
+          {nameDirty && <div className="mt-4 grid grid-cols-2 gap-2"><Button onClick={saveName}>Update name</Button><Button onClick={() => setFullName(initialFullName)} variant="outline" className="bg-white">Cancel</Button></div>}
+          {nameUpdated && !nameDirty && <p className="mt-3 text-sm font-medium text-neutral-400">Name updated.</p>}
+        </SettingsSection>
+
+        <SettingsSection title="Update email address">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-700">Email address</span>
+            <input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailUpdated(false); }} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" />
+          </label>
+          {emailDirty && <div className="mt-4 grid grid-cols-2 gap-2"><Button onClick={saveEmail}>Update email</Button><Button onClick={() => setEmail(profile.email)} variant="outline" className="bg-white">Cancel</Button></div>}
+          {emailUpdated && !emailDirty && <p className="mt-3 text-sm font-medium text-neutral-400">Email updated.</p>}
+        </SettingsSection>
+
+        <SettingsSection title="Change password">
+          <div className="space-y-3">
+            <PasswordField label="Current password" value={currentPassword} onChange={(value) => { setCurrentPassword(value); setPasswordUpdated(false); }} visible={showCurrentPassword} setVisible={setShowCurrentPassword} placeholder="Enter current password" />
+            <PasswordField label="New password" value={newPassword} onChange={(value) => { setNewPassword(value); setPasswordUpdated(false); }} visible={showNewPassword} setVisible={setShowNewPassword} placeholder="Enter new password" />
+            <div className="rounded-2xl bg-[#f7f3eb] p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-400">Password requirements</div>
+              <div className="space-y-1.5">
+                <RequirementRow met={hasLength}>At least 8 characters</RequirementRow>
+                <RequirementRow met={hasUppercase}>One uppercase letter</RequirementRow>
+                <RequirementRow met={hasNumberOrSpecial}>One number or special character</RequirementRow>
+              </div>
+            </div>
+            <PasswordField label="Confirm new password" value={confirmPassword} onChange={(value) => { setConfirmPassword(value); setPasswordUpdated(false); }} visible={showConfirmPassword} setVisible={setShowConfirmPassword} placeholder="Re-enter new password" />
+            {confirmPassword && !passwordsMatch && <p className="text-xs font-medium text-red-500">Passwords do not match.</p>}
+          </div>
+          {passwordDirty && <div className="mt-4 grid grid-cols-2 gap-2"><Button onClick={savePassword} className={canUpdatePassword ? "" : "bg-neutral-300 text-neutral-500 shadow-none hover:bg-neutral-300"}>Update password</Button><Button onClick={() => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }} variant="outline" className="bg-white">Cancel</Button></div>}
+          {passwordUpdated && !passwordDirty && <p className="mt-3 text-sm font-medium text-neutral-400">Password updated.</p>}
+        </SettingsSection>
+
+        <SettingsSection title="Notifications & Privacy">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium text-neutral-950">Push notifications</div>
+              <p className="mt-1 text-sm text-neutral-500">Get updates about product reviews, comments, and new matches.</p>
+            </div>
+            <ToggleSwitch checked={notificationsOn} onClick={() => setNotificationsOn(!notificationsOn)} label="Toggle notifications" />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium text-neutral-950">Share activity</div>
+              <p className="mt-1 text-sm text-neutral-500">Show your scans and {localeCopy.favoritesLower} in your social feed.</p>
+            </div>
+            <ToggleSwitch checked={shareActivity} onClick={() => setShareActivity(!shareActivity)} label="Toggle share activity" />
+          </div>
+        </SettingsSection>
+
+        <Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button>
+        <Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button>
+      </div>
+    </div>
+  );
 }
 
 function SignInScreen({ onSignIn }) {
