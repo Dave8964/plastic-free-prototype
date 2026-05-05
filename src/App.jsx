@@ -943,15 +943,38 @@ function Phone({ children }) {
 function ProductImage({ src, alt, className, onMissing }) {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const fitClass = className?.includes("object-contain") ? "object-contain" : "object-cover";
+  const fit = className?.includes("object-contain") ? "contain" : "cover";
   useEffect(() => {
+    let active = true;
     setError(false);
     setLoaded(false);
-    if (!src) onMissing?.();
+    if (!src) {
+      onMissing?.();
+      return () => {
+        active = false;
+      };
+    }
+    const image = new Image();
+    image.onload = () => {
+      if (active) setLoaded(true);
+    };
+    image.onerror = () => {
+      if (!active) return;
+      setError(true);
+      onMissing?.();
+    };
+    image.src = src;
+    return () => {
+      active = false;
+    };
   }, [src]);
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden bg-[#f1eee7] text-neutral-400 ${className}`}>
-      {src && !error && <img src={src} alt="" className={`absolute inset-0 h-full w-full transition-opacity ${fitClass} ${loaded ? "opacity-100" : "opacity-0"}`} onLoad={() => setLoaded(true)} onError={() => { setError(true); onMissing?.(); }} />}
+    <div
+      className={`relative flex items-center justify-center overflow-hidden bg-[#f1eee7] text-neutral-400 ${className}`}
+      role={loaded ? "img" : undefined}
+      aria-label={loaded ? alt : undefined}
+      style={loaded && !error ? { backgroundImage: `url("${src}")`, backgroundSize: fit, backgroundPosition: "center", backgroundRepeat: "no-repeat" } : undefined}
+    >
       {(!src || error) && (
         <svg width="42%" height="42%" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-label={alt || "Image unavailable"}>
           <circle cx="32" cy="32" r="25" />
