@@ -2309,19 +2309,38 @@ function BadgeGlyph({ id, size = 34 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" {...common} aria-hidden="true">{icons[id] || icons.plastic_detective}</svg>;
 }
 
-function BadgeCard({ badge, highlight, compact = false }) {
+function getBadgeUnlockNote(badge) {
+  const notes = {
+    plastic_detective: "Scan products with the barcode scanner. Every successful product scan moves this badge forward.",
+    microplastic_hunter: "Open product details and review hidden packaging concerns, especially parts with plastic contact.",
+    red_flag_radar: "Find and review products with high concern scores or added health-risk flags.",
+    ingredient_inspector: "Open detailed breakdowns and source-backed evidence to understand why a score was assigned.",
+    data_driven: "Use search, filters, product comparisons, and detail views to make more informed swaps.",
+    community_voice: "Save, share, and contribute product information that helps other people make decisions.",
+    conscious_consumer: "Keep your saved and scanned products weighted toward lower-plastic, cleaner-rated choices.",
+    deep_diver: "Tap into detailed score breakdowns, plastic-part explanations, and supporting evidence pages.",
+    barcode_whisperer: "Scan barcodes consistently and quickly. More successful scans unlock higher tiers.",
+    eco_upgrade: "Replace lower-rated products with better alternatives in the same product type.",
+    plastic_pro: "Build broad app mastery across scanning, saving, reviewing, sharing, and finding cleaner products.",
+    word_of_mouth: "Share useful product finds or warnings with other people from product pages.",
+  };
+  return notes[badge.id] || "Use the app and keep completing related actions to move this badge forward.";
+}
+
+const badgeTierStyles = {
+  Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
+  Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
+  Gold: { medal: "radial-gradient(circle at 30% 24%, #fff9d7 0%, #ffd54a 35%, #c99317 70%, #7a4a00 100%)", text: "text-[#ad7500]", shadow: "0 10px 22px rgba(210,152,22,0.34), inset 0 1px 2px rgba(255,255,255,0.88)" },
+  Platinum: { medal: "radial-gradient(circle at 30% 22%, #ffffff 0%, #e5f8ff 30%, #b7d8ec 58%, #6f879c 100%)", text: "text-[#66869d]", shadow: "0 10px 24px rgba(148,199,228,0.38), inset 0 1px 2px rgba(255,255,255,0.92)" },
+  Starter: { medal: "radial-gradient(circle at 32% 24%, #f3fff6 0%, #9edba9 48%, #63b879 100%)", text: "text-[#4f9d61]", shadow: "0 8px 18px rgba(99,184,121,0.24), inset 0 1px 2px rgba(255,255,255,0.9)" }
+};
+
+function BadgeCard({ badge, highlight, compact = false, onSelect }) {
   const status = getBadgeStatus(badge);
   const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
   const compactProgressText = progressText.replaceAll(" / ", "/");
   const nextLabel = status.isMaxTier ? "Max tier" : `Next: ${status.nextTier}`;
-  const tierStyles = {
-    Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
-    Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
-    Gold: { medal: "radial-gradient(circle at 30% 24%, #fff9d7 0%, #ffd54a 35%, #c99317 70%, #7a4a00 100%)", text: "text-[#ad7500]", shadow: "0 10px 22px rgba(210,152,22,0.34), inset 0 1px 2px rgba(255,255,255,0.88)" },
-    Platinum: { medal: "radial-gradient(circle at 30% 22%, #ffffff 0%, #e5f8ff 30%, #b7d8ec 58%, #6f879c 100%)", text: "text-[#66869d]", shadow: "0 10px 24px rgba(148,199,228,0.38), inset 0 1px 2px rgba(255,255,255,0.92)" },
-    Starter: { medal: "radial-gradient(circle at 32% 24%, #f3fff6 0%, #9edba9 48%, #63b879 100%)", text: "text-[#4f9d61]", shadow: "0 8px 18px rgba(99,184,121,0.24), inset 0 1px 2px rgba(255,255,255,0.9)" }
-  };
-  const tier = tierStyles[status.currentTier] || tierStyles.Starter;
+  const tier = badgeTierStyles[status.currentTier] || badgeTierStyles.Starter;
 
   return (
     <motion.div
@@ -2329,7 +2348,11 @@ function BadgeCard({ badge, highlight, compact = false }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
       whileTap={{ scale: 0.985 }}
-      className={`relative overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.03] ${compact ? "min-h-[158px] p-3" : "min-h-[210px] p-4"}`}
+      onClick={onSelect}
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) onSelect(); }}
+      className={`relative overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.03] ${onSelect ? "cursor-pointer" : ""} ${compact ? "min-h-[158px] p-3" : "min-h-[210px] p-4"}`}
     >
       <motion.div
         animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }}
@@ -2429,8 +2452,16 @@ function BadgeCard({ badge, highlight, compact = false }) {
   );
 }
 
-function BadgesScreen({ badges, highlightBadge, close }) {
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badges" right={<BackButton onClick={close} />} /><div className="grid grid-cols-2 gap-3">{badges.map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div>;
+function BadgeDetailScreen({ badge, close }) {
+  const status = getBadgeStatus(badge);
+  const tier = badgeTierStyles[status.currentTier] || badgeTierStyles.Starter;
+  const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
+  const targetText = status.isMaxTier ? "Highest tier unlocked" : `Next: ${status.nextTier}`;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badge" right={<BackButton onClick={close} />} /><div className="overflow-hidden rounded-[2rem] bg-white p-5 text-center shadow-[0_14px_36px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]"><div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#f7f3eb] text-neutral-950 shadow-inner"><BadgeGlyph id={badge.id} size={50} /><div className="absolute -right-3 -top-3 h-12 w-12 overflow-hidden rounded-full ring-2 ring-white" style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}>{status.currentTier === "Platinum" && <motion.div className="absolute inset-0 rounded-full" style={{ background: "linear-gradient(118deg, transparent 32%, rgba(255,255,255,0.78) 48%, rgba(205,238,255,0.5) 54%, transparent 68%)" }} initial={{ x: "-125%", opacity: 0 }} animate={{ x: ["-125%", "125%"], opacity: [0, 0.78, 0] }} transition={{ duration: 2.25, repeat: Infinity, ease: "easeInOut" }} />}</div></div><h2 className="mt-5 text-[30px] font-semibold leading-none tracking-[-0.05em] text-neutral-950">{badge.name}</h2><div className={`mt-2 text-sm font-semibold ${tier.text}`}>{status.currentTier}</div><p className="mx-auto mt-4 max-w-[310px] text-sm leading-6 text-neutral-500">{badge.description}</p><div className="mt-5 rounded-3xl bg-[#f7f3eb] p-4 text-left"><div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-neutral-600"><span>{targetText}</span><span className="shrink-0 tabular-nums">{progressText}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-white shadow-inner"><motion.div className="h-full origin-left rounded-full bg-neutral-950" initial={{ scaleX: 0 }} animate={{ scaleX: status.percent / 100 }} transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }} /></div></div></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">How to unlock</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{getBadgeUnlockNote(badge)}</p></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Tiers</h3><div className="mt-3 space-y-2">{badge.tiers.map((tierItem) => { const reached = badge.progress >= tierItem.threshold; return <div key={tierItem.name} className={`flex items-center justify-between rounded-2xl px-3 py-2 text-sm ${reached ? "bg-[#f7f3eb] text-neutral-950" : "bg-white text-neutral-400 ring-1 ring-black/[0.04]"}`}><span className="font-semibold">{tierItem.name}</span><span className="tabular-nums">{badge.isPercent ? `${tierItem.threshold}%` : tierItem.threshold}</span></div>; })}</div></div></div>;
+}
+
+function BadgesScreen({ badges, highlightBadge, close, openBadge }) {
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badges" right={<BackButton onClick={close} />} /><div className="grid grid-cols-2 gap-3">{badges.map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact onSelect={() => openBadge?.(badge)} />)}</div></div>;
 }
 
 function FavoritesScreen({ products, openResult, close, favoriteIds = null, localeCopy = getLocaleCopy() }) {
@@ -2546,9 +2577,9 @@ function ProfileStatButton({ value, label, onClick }) {
   return <button type="button" onClick={onClick} className="rounded-2xl py-2 transition hover:bg-black/5 active:scale-[0.98]"><div className="text-2xl font-semibold">{value}</div><div className="text-xs text-neutral-500">{label}</div></button>;
 }
 
-function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, openAdminReview, pendingReviewCount = 0, profile, favoriteIds = [], scanCount = db.scans.length, followingCount = 0, followersCount = 0, openScans, openFollowing, openFollowers, localeCopy = getLocaleCopy() }) {
+function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openBadge, openPlans, openAdminReview, pendingReviewCount = 0, profile, favoriteIds = [], scanCount = db.scans.length, followingCount = 0, followersCount = 0, openScans, openFollowing, openFollowers, localeCopy = getLocaleCopy() }) {
   const saved = favoriteIds.map((productId) => products.find((product) => product.id === productId)).filter(Boolean);
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-2"><ProfileStatButton value={scanCount} label="Scans" onClick={openScans} /><ProfileStatButton value={followingCount} label="Following" onClick={openFollowing} /><ProfileStatButton value={followersCount} label="Followers" onClick={openFollowers} /><ProfileStatButton value={saved.length} label={localeCopy.favorites} onClick={openFavorites} /></div></div></Card><button type="button" onClick={openAdminReview} className="mt-5 flex w-full items-center justify-between rounded-3xl bg-neutral-950 p-4 text-left text-white shadow-sm transition active:scale-[0.99]"><div><div className="font-semibold">Developer review queue</div><p className="mt-1 text-sm text-neutral-300">Approve submitted products from phone or desktop.</p></div><span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-3 text-sm font-bold text-neutral-950">{pendingReviewCount}</span></button><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-2"><ProfileStatButton value={scanCount} label="Scans" onClick={openScans} /><ProfileStatButton value={followingCount} label="Following" onClick={openFollowing} /><ProfileStatButton value={followersCount} label="Followers" onClick={openFollowers} /><ProfileStatButton value={saved.length} label={localeCopy.favorites} onClick={openFavorites} /></div></div></Card><button type="button" onClick={openAdminReview} className="mt-5 flex w-full items-center justify-between rounded-3xl bg-neutral-950 p-4 text-left text-white shadow-sm transition active:scale-[0.99]"><div><div className="font-semibold">Developer review queue</div><p className="mt-1 text-sm text-neutral-300">Approve submitted products from phone or desktop.</p></div><span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-3 text-sm font-bold text-neutral-950">{pendingReviewCount}</span></button><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact onSelect={() => openBadge?.(badge)} />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
 }
 
 
@@ -3047,6 +3078,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [peopleList, setPeopleList] = useState(null);
   const [isSignedOut, setIsSignedOut] = useState(false);
   const [showBadges, setShowBadges] = useState(false);
+  const [badgeDetail, setBadgeDetail] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [showPlans, setShowPlans] = useState(false);
@@ -3145,6 +3177,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setShowFavorites(false);
     setShowDeleteAccount(false);
     setShowBadges(false);
+    setBadgeDetail(null);
     setShowNotifications(false);
     setShowPlans(false);
     setShowAdminReview(false);
@@ -3427,7 +3460,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const followingUsers = db.follows.filter((follow) => follow.followerId === "user_me").map((follow) => db.users.find((user) => user.id === follow.followedId)).filter(Boolean);
   const followerUsers = db.users.filter((user) => user.id !== "user_me");
   const pendingReviewCount = reviewSubmissions.filter((submission) => isPendingReviewProduct(submission.product)).length;
-  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
+  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || badgeDetail || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
   const goBack = () => {
     if (viewUser) {
       setViewUser(null);
@@ -3463,6 +3496,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }
     if (showDeleteAccount) {
       setShowDeleteAccount(false);
+      return;
+    }
+    if (badgeDetail) {
+      setBadgeDetail(null);
       return;
     }
     if (showBadges) {
@@ -3541,13 +3578,17 @@ export default function PlasticFreeScannerDatabasePrototype() {
   <motion.div key="people-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <PeopleListScreen title={peopleList.title} users={peopleList.users} openUserProfile={(user) => setViewUser(user)} close={() => setPeopleList(null)} />
   </motion.div>
+) : badgeDetail ? (
+  <motion.div key="badge-detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
+    <BadgeDetailScreen badge={badgeDetail} close={() => setBadgeDetail(null)} />
+  </motion.div>
 ) : showDeleteAccount ? (
   <motion.div key="delete" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <DeleteAccountScreen close={() => setShowDeleteAccount(false)} onConfirmDelete={confirmDeleteAccount} />
   </motion.div>
 ) : showBadges ? (
   <motion.div key="badges" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <BadgesScreen badges={badgeProgress} highlightBadge={highlightBadge} close={() => setShowBadges(false)} />
+    <BadgesScreen badges={badgeProgress} highlightBadge={highlightBadge} close={() => setShowBadges(false)} openBadge={(badge) => setBadgeDetail(badge)} />
   </motion.div>
 ) : showFavorites ? (
   <motion.div key="favorites" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
@@ -3575,7 +3616,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
     {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
-    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
+    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openBadge={(badge) => setBadgeDetail(badge)} openPlans={() => setShowPlans(true)} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
   </motion.div>
 )}
 </AnimatePresence>
