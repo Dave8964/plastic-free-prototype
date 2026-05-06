@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useDragControls, useScroll, useTransform } from "framer-motion";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
@@ -3481,12 +3481,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const followingUsers = db.follows.filter((follow) => follow.followerId === "user_me").map((follow) => db.users.find((user) => user.id === follow.followedId)).filter(Boolean);
   const followerUsers = db.users.filter((user) => user.id !== "user_me");
   const pendingReviewCount = reviewSubmissions.filter((submission) => isPendingReviewProduct(submission.product)).length;
-  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || badgeDetail || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
-
-  useLayoutEffect(() => {
-    if (!showPlans) return;
-    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [showPlans]);
+  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || badgeDetail || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showAdminReview || (showAddProduct && !addProductAsSheet);
 
   const goBack = () => {
     if (viewUser) {
@@ -3586,10 +3581,6 @@ export default function PlasticFreeScannerDatabasePrototype() {
   <motion.div key="add-product" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <AddProductScreen draft={addProductDraft} close={closeAddProduct} onSubmit={submitPendingProduct} />
   </motion.div>
-) : showPlans ? (
-  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
-    <PlansScreen close={closePlans} />
-  </motion.div>
 ) : showAdminReview ? (
   <motion.div key="admin-review" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <AdminReviewScreen submissions={reviewSubmissions} close={closeAdminReview} onRefresh={refreshReviewSubmissions} onApprove={approveReviewSubmission} onNeedsInfo={markReviewNeedsInfo} onRejectDuplicate={rejectReviewDuplicate} />
@@ -3655,6 +3646,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
 </div>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
+<AnimatePresence>
+{showPlans && <motion.div key="plans-overlay" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 18 }} transition={pageTransition} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb]">
+  <PlansScreen close={closePlans} />
+</motion.div>}
+</AnimatePresence>
 <AnimatePresence>
 {showAddProduct && addProductAsSheet && <motion.div key="add-product-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }} className="absolute inset-0 z-40 flex items-end overflow-hidden overscroll-none bg-neutral-950/28 backdrop-blur-md" onClick={closeAddProduct} onTouchMoveCapture={(event) => event.stopPropagation()}>
   <motion.div key="add-product-sheet" variants={{ hidden: { y: "105%", transition: { duration: 0.36, ease: [0.32, 0.72, 0, 1] } }, visible: { y: 0, transition: { type: "spring", stiffness: 280, damping: 34, mass: 1.05 } } }} initial="hidden" animate="visible" exit="hidden" drag="y" dragListener={false} dragControls={addProductDragControls} dragMomentum={false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.22 }} onTouchStartCapture={handleAddProductSheetTouchStart} onTouchMoveCapture={(event) => event.stopPropagation()} onTouchEndCapture={handleAddProductSheetTouchEnd} onDragEnd={(_, info) => { if (info.offset.y > 56 || info.velocity.y > 420) closeAddProduct(); }} className="max-h-[92%] w-full touch-pan-y overscroll-contain overflow-y-auto rounded-t-[2rem] bg-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.35)]" onClick={(event) => event.stopPropagation()}>
