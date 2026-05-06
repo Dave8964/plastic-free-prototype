@@ -2313,13 +2313,13 @@ function BadgeCard({ badge, highlight, compact = false }) {
   const status = getBadgeStatus(badge);
   const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
   const compactProgressText = progressText.replaceAll(" / ", "/");
-  const nextLabel = status.isMaxTier ? `${status.currentTier} reached` : `Next: ${status.nextTier}`;
+  const nextLabel = status.isMaxTier ? "Max tier" : `Next: ${status.nextTier}`;
   const tierStyles = {
     Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
     Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
     Gold: { medal: "radial-gradient(circle at 30% 24%, #fff9d7 0%, #ffd54a 35%, #c99317 70%, #7a4a00 100%)", text: "text-[#ad7500]", shadow: "0 10px 22px rgba(210,152,22,0.34), inset 0 1px 2px rgba(255,255,255,0.88)" },
     Platinum: { medal: "radial-gradient(circle at 30% 22%, #ffffff 0%, #e5f8ff 30%, #b7d8ec 58%, #6f879c 100%)", text: "text-[#66869d]", shadow: "0 10px 24px rgba(148,199,228,0.38), inset 0 1px 2px rgba(255,255,255,0.92)" },
-    Starter: { medal: "linear-gradient(145deg, #f3f4f6, #cfd4da)", text: "text-neutral-500" }
+    Starter: { medal: "radial-gradient(circle at 32% 24%, #f3fff6 0%, #9edba9 48%, #63b879 100%)", text: "text-[#4f9d61]", shadow: "0 8px 18px rgba(99,184,121,0.24), inset 0 1px 2px rgba(255,255,255,0.9)" }
   };
   const tier = tierStyles[status.currentTier] || tierStyles.Starter;
 
