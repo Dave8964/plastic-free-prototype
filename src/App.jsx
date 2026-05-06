@@ -1049,9 +1049,9 @@ function useSwipeBack(onBack, enabled = true) {
 
   const startGesture = (clientX, clientY, event) => {
     if (!enabled) return;
-    if (event.target.closest?.("button, a, input, textarea, select")) return;
+    if (event.target?.closest?.("button, a, input, textarea, select")) return;
     const bounds = event.currentTarget.getBoundingClientRect();
-    const edgeZone = Math.min(96, bounds.width * 0.28);
+    const edgeZone = Math.min(150, bounds.width * 0.42);
     const localX = clientX - bounds.left;
     if (localX > edgeZone) return;
     try {
@@ -1069,7 +1069,7 @@ function useSwipeBack(onBack, enabled = true) {
     const deltaX = clientX - x;
     const deltaY = clientY - y;
     const elapsed = Date.now() - time;
-    const isBackSwipe = deltaX > 86 && Math.abs(deltaY) < 70 && deltaX > Math.abs(deltaY) * 1.7 && elapsed < 1400;
+    const isBackSwipe = deltaX > 54 && Math.abs(deltaY) < 92 && deltaX > Math.abs(deltaY) * 1.15 && elapsed < 1800;
     if (!isBackSwipe) return;
     event.stopPropagation();
     triggerHapticFeedback();
@@ -3491,6 +3491,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const followerUsers = db.users.filter((user) => user.id !== "user_me");
   const pendingReviewCount = reviewSubmissions.filter((submission) => isPendingReviewProduct(submission.product)).length;
   const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || badgeDetail || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showAdminReview || (showAddProduct && !addProductAsSheet);
+  const canSwipeBack = viewUser || showAddProduct || showPlans || showAdminReview || showNotifications || shareProduct || historyList || peopleList || showDeleteAccount || badgeDetail || showBadges || showFavorites || showSettings || detail || plasticListDetail || showResult;
 
   const goBack = () => {
     if (viewUser) {
@@ -3582,8 +3583,9 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (animationDefinition?.opacity === 0) return;
     scrollIncomingScreen(screen);
   };
+  const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(canSwipeBack));
 
-  return <div className={`min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8 ${profile.darkMode ? "app-dark" : ""}`}><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className={`min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8 ${profile.darkMode ? "app-dark" : ""}`}><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col" {...appSwipeBackHandlers}><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
