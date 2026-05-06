@@ -2310,6 +2310,7 @@ function BadgeGlyph({ id, size = 34 }) {
 function BadgeCard({ badge, highlight, compact = false }) {
   const status = getBadgeStatus(badge);
   const progressText = badge.isPercent ? `${badge.progress}% / ${status.nextThreshold}%` : `${badge.progress} / ${status.nextThreshold}`;
+  const compactProgressText = progressText.replaceAll(" / ", "/");
   const tierStyles = {
     Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
     Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
@@ -2325,12 +2326,12 @@ function BadgeCard({ badge, highlight, compact = false }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
       whileTap={{ scale: 0.985 }}
-      className={`relative overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.03] ${compact ? "min-h-[132px] p-3" : "min-h-[210px] p-4"}`}
+      className={`relative overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.03] ${compact ? "min-h-[158px] p-3" : "min-h-[210px] p-4"}`}
     >
       <motion.div
         animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }}
         transition={{ duration: 0.65 }}
-        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/80 ${compact ? "left-[54px] top-[52px] h-8 w-8 text-xs" : "left-[76px] top-[76px] h-11 w-11 text-lg"}`}
+        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/80 ${compact ? "right-3 top-3 h-8 w-8 text-xs" : "left-[76px] top-[76px] h-11 w-11 text-lg"}`}
         style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}
       >
         {status.currentTier !== "Starter" && (
@@ -2391,20 +2392,30 @@ function BadgeCard({ badge, highlight, compact = false }) {
       </motion.div>
 
       <div className="relative z-[1] flex h-full flex-col">
-        <div className={`flex items-center ${compact ? "gap-2.5" : "gap-4"}`}>
-          <div className={`flex shrink-0 items-center justify-center rounded-[20px] bg-[#f7f3eb] text-neutral-950 shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-14 w-14" : "h-20 w-20"}`}><BadgeGlyph id={badge.id} size={compact ? 30 : 42} /></div>
-          <div className="min-w-0">
-            <h4 className={`font-semibold tracking-[-0.035em] text-neutral-950 ${compact ? "line-clamp-2 text-[16px] leading-[1.06]" : "text-[24px] leading-[1.05]"}`}>{badge.name}</h4>
-            <div className={`mt-1 text-xs font-semibold ${tier.text}`}>{status.currentTier}</div>
+        {compact ? (
+          <>
+            <div className="flex items-start justify-between pr-10">
+              <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[19px] bg-[#f7f3eb] text-neutral-950 shadow-inner ring-1 ring-black/[0.03]"><BadgeGlyph id={badge.id} size={29} /></div>
+            </div>
+            <h4 className="mt-2 line-clamp-2 min-h-[36px] text-[17px] font-semibold leading-[1.06] tracking-[-0.035em] text-neutral-950">{badge.name}</h4>
+            <div className={`mt-0.5 text-xs font-semibold ${tier.text}`}>{status.currentTier}</div>
+          </>
+        ) : (
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[20px] bg-[#f7f3eb] text-neutral-950 shadow-inner ring-1 ring-black/[0.03]"><BadgeGlyph id={badge.id} size={42} /></div>
+            <div className="min-w-0">
+              <h4 className="text-[24px] font-semibold leading-[1.05] tracking-[-0.035em] text-neutral-950">{badge.name}</h4>
+              <div className={`mt-1 text-xs font-semibold ${tier.text}`}>{status.currentTier}</div>
+            </div>
           </div>
-        </div>
+        )}
 
         {!compact && <p className="mt-4 line-clamp-2 text-[15px] leading-6 text-neutral-500">{badge.description}</p>}
 
         <div className={compact ? "mt-auto pt-3" : "mt-auto pt-5"}>
           <div className={`mb-2 flex items-end justify-between gap-2 font-semibold ${compact ? "text-[10px]" : "text-sm"}`}>
             <span className="min-w-0 truncate whitespace-nowrap text-neutral-500">Next {status.nextTier}</span>
-            <span className="shrink-0 whitespace-nowrap tabular-nums tracking-[-0.02em] text-neutral-500">{progressText}</span>
+            <span className="shrink-0 whitespace-nowrap tabular-nums tracking-[-0.02em] text-neutral-500">{compact ? compactProgressText : progressText}</span>
           </div>
           <div className={`overflow-hidden rounded-full bg-[#f0ebe2] shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-2" : "h-2.5"}`}>
             <div className="h-full rounded-full bg-neutral-950" style={{ width: `${status.percent}%` }} />
