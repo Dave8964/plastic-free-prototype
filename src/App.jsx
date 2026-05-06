@@ -3552,7 +3552,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (showResult) setShowResult(false);
   };
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
-  const proPageTransition = { duration: 0.58, ease: [0.18, 0.88, 0.22, 1] };
+  const proPageTransition = { duration: 0.52, ease: [0.2, 0.82, 0.2, 1] };
   const proPageExitTransition = { duration: 0.24, ease: [0.2, 0.82, 0.2, 1] };
   const productPageTransition = { ...pageTransition, duration: 0.4 };
   const returnToTabTransition = { ...pageTransition, duration: 0.24 };
@@ -3654,9 +3654,9 @@ export default function PlasticFreeScannerDatabasePrototype() {
 </div>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
-{canSwipeBack && !showResult && !detail && !plasticListDetail && !showAddProduct && <div className="absolute left-0 top-0 z-50 h-full w-9 touch-pan-y" aria-hidden="true" {...appSwipeBackHandlers} />}
+{canSwipeBack && !showResult && !detail && !plasticListDetail && !showAddProduct && <div className="absolute left-0 top-0 z-50 h-full w-14 touch-none" aria-hidden="true" {...appSwipeBackHandlers} />}
 <AnimatePresence>
-{showPlans && <motion.div key="plans-overlay" initial={{ x: 34, scale: 0.992 }} animate={{ x: 0, scale: 1, transition: proPageTransition }} exit={{ opacity: 0, x: -18, transition: proPageExitTransition }} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb] shadow-[-18px_0_40px_rgba(0,0,0,0.08)] will-change-transform">
+{showPlans && <motion.div key="plans-overlay" initial={{ x: "100%" }} animate={{ x: 0, transition: proPageTransition }} exit={{ opacity: 0, x: -18, transition: proPageExitTransition }} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb] shadow-[-18px_0_40px_rgba(0,0,0,0.08)] will-change-transform">
   <PlansScreen close={closePlans} />
 </motion.div>}
 </AnimatePresence>
