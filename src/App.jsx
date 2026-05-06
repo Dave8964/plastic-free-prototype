@@ -685,11 +685,13 @@ function getBadgeStatus(badge) {
   const progress = badge?.progress || 0;
   const currentTier = [...tiers].reverse().find((tier) => progress >= tier.threshold) || null;
   const nextTier = tiers.find((tier) => progress < tier.threshold) || tiers[tiers.length - 1] || { name: "Starter", threshold: 1 };
+  const maxTier = tiers[tiers.length - 1] || nextTier;
+  const isMaxTier = currentTier?.name === maxTier?.name;
   const previousThreshold = currentTier?.threshold || 0;
   const range = Math.max(1, nextTier.threshold - previousThreshold);
   const progressInRange = Math.min(range, Math.max(0, progress - previousThreshold));
   const percent = nextTier.name === currentTier?.name ? 100 : Math.round((progressInRange / range) * 100);
-  return { currentTier: currentTier?.name || "Starter", nextTier: nextTier.name, nextThreshold: nextTier.threshold, percent };
+  return { currentTier: currentTier?.name || "Starter", nextTier: nextTier.name, nextThreshold: nextTier.threshold, displayProgress: Math.min(progress, nextTier.threshold), percent, isMaxTier };
 }
 
 function getPartContexts(partId) {
@@ -2309,8 +2311,9 @@ function BadgeGlyph({ id, size = 34 }) {
 
 function BadgeCard({ badge, highlight, compact = false }) {
   const status = getBadgeStatus(badge);
-  const progressText = badge.isPercent ? `${badge.progress}% / ${status.nextThreshold}%` : `${badge.progress} / ${status.nextThreshold}`;
+  const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
   const compactProgressText = progressText.replaceAll(" / ", "/");
+  const nextLabel = status.isMaxTier ? `${status.currentTier} reached` : `Next: ${status.nextTier}`;
   const tierStyles = {
     Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
     Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
@@ -2377,13 +2380,13 @@ function BadgeCard({ badge, highlight, compact = false }) {
               className="pointer-events-none absolute inset-[4px] rounded-full border border-white/65"
               style={{ boxShadow: "inset 0 1px 3px rgba(255,255,255,0.96), inset 0 -2px 4px rgba(58,83,108,0.24)" }}
             />
-            {!compact && <motion.div
+            <motion.div
               className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
               style={{ background: "linear-gradient(118deg, transparent 34%, rgba(255,255,255,0.75) 48%, rgba(205,238,255,0.48) 52%, transparent 66%)" }}
               initial={{ x: "-125%", opacity: 0 }}
               animate={{ x: ["-125%", "125%"], opacity: [0, 0.72, 0] }}
               transition={{ duration: 2.35, repeat: Infinity, ease: "easeInOut", delay: 0.55 }}
-            />}
+            />
           </>
         )}
 
@@ -2397,7 +2400,7 @@ function BadgeCard({ badge, highlight, compact = false }) {
             <div className="flex items-start justify-between pr-10">
               <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[19px] bg-[#f7f3eb] text-neutral-950 shadow-inner ring-1 ring-black/[0.03]"><BadgeGlyph id={badge.id} size={29} /></div>
             </div>
-            <h4 className="mt-2 line-clamp-2 min-h-[36px] text-[17px] font-semibold leading-[1.06] tracking-[-0.035em] text-neutral-950">{badge.name}</h4>
+            <h4 className="mt-2 line-clamp-2 text-[17px] font-semibold leading-[1.06] tracking-[-0.035em] text-neutral-950">{badge.name}</h4>
             <div className={`mt-0.5 text-xs font-semibold ${tier.text}`}>{status.currentTier}</div>
           </>
         ) : (
@@ -2414,11 +2417,11 @@ function BadgeCard({ badge, highlight, compact = false }) {
 
         <div className={compact ? "mt-auto pt-3" : "mt-auto pt-5"}>
           <div className={`mb-2 flex items-end justify-between gap-2 font-semibold ${compact ? "text-[10px]" : "text-sm"}`}>
-            <span className="min-w-0 truncate whitespace-nowrap text-neutral-500">Next {status.nextTier}</span>
+            <span className="min-w-0 truncate whitespace-nowrap text-neutral-500">{nextLabel}</span>
             <span className="shrink-0 whitespace-nowrap tabular-nums tracking-[-0.02em] text-neutral-500">{compact ? compactProgressText : progressText}</span>
           </div>
           <div className={`overflow-hidden rounded-full bg-[#f0ebe2] shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-2" : "h-2.5"}`}>
-            <div className="h-full rounded-full bg-neutral-950" style={{ width: `${status.percent}%` }} />
+            <motion.div className="h-full origin-left rounded-full bg-neutral-950" initial={{ scaleX: 0 }} animate={{ scaleX: status.percent / 100 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} />
           </div>
         </div>
       </div>
