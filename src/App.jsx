@@ -2583,7 +2583,7 @@ function ProUpgradeCard({ onClick }) {
     ["Offline mode", "Scan when store service is weak"],
     ["Strict mode", "Personalized plastic risk filters"],
   ];
-  return <button type="button" onClick={onClick} className="group relative mt-5 w-full overflow-hidden rounded-[2rem] bg-white p-5 text-left text-neutral-950 shadow-[0_18px_44px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.04] transition active:scale-[0.99]"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_0%,rgba(158,219,169,0.38),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.96),rgba(247,243,235,0.92))]" /><div className="pointer-events-none absolute right-0 top-0 h-24 w-32 rounded-bl-[3rem] bg-neutral-950/95 shadow-[0_18px_36px_rgba(0,0,0,0.18)]" /><div className="relative"><div className="mb-3 inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white shadow-sm">Pro awaits</div><h3 className="max-w-[250px] text-[28px] font-semibold leading-[0.98] tracking-[-0.055em]">Unlock the serious scanner</h3><p className="mt-3 max-w-[280px] text-sm leading-6 text-neutral-500">Built for grocery trips, pantry cleanups, and stricter plastic decisions.</p><div className="mt-5 space-y-2.5">{features.map(([title, detail]) => <div key={title} className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 shadow-sm ring-1 ring-black/[0.03]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e6f8ef] text-sm font-bold text-[#00894b]">✓</span><div className="min-w-0"><div className="text-sm font-semibold text-neutral-950">{title}</div><div className="text-xs text-neutral-500">{detail}</div></div></div>)}</div><div className="mt-5 flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">Upgrade preview</span><span className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(0,0,0,0.18)] transition group-active:scale-[0.98]">View Pro <span aria-hidden="true">→</span></span></div></div></button>;
+  return <button type="button" onClick={onClick} className="group relative mt-5 w-full overflow-hidden rounded-[2rem] bg-white p-5 text-left text-neutral-950 shadow-[0_18px_44px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.04] transition active:scale-[0.99]"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_0%,rgba(158,219,169,0.38),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.96),rgba(247,243,235,0.92))]" /><div className="relative"><div className="mb-3 inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white shadow-sm">Pro awaits</div><h3 className="max-w-[250px] text-[28px] font-semibold leading-[0.98] tracking-[-0.055em]">Shop with deeper insight</h3><p className="mt-3 max-w-[280px] text-sm leading-6 text-neutral-500">Built for grocery trips, pantry cleanups, and stricter plastic decisions.</p><div className="mt-5 space-y-2.5">{features.map(([title, detail]) => <div key={title} className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 shadow-sm ring-1 ring-black/[0.03]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e6f8ef] text-sm font-bold text-[#00894b]">✓</span><div className="min-w-0"><div className="text-sm font-semibold text-neutral-950">{title}</div><div className="text-xs text-neutral-500">{detail}</div></div></div>)}</div><div className="mt-5 flex justify-end"><span className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(0,0,0,0.18)] transition group-active:scale-[0.98]">View Pro <span aria-hidden="true">→</span></span></div></div></button>;
 }
 
 function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openBadge, openPlans, openAdminReview, pendingReviewCount = 0, profile, favoriteIds = [], scanCount = db.scans.length, followingCount = 0, followersCount = 0, openScans, openFollowing, openFollowers, localeCopy = getLocaleCopy() }) {
@@ -3105,6 +3105,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const shouldRestoreProductScrollRef = useRef(false);
   const searchScrollTopRef = useRef(0);
   const shouldRestoreSearchScrollRef = useRef(false);
+  const profileScrollTopRef = useRef(0);
+  const shouldRestoreProfileScrollRef = useRef(false);
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
@@ -3457,6 +3459,16 @@ export default function PlasticFreeScannerDatabasePrototype() {
     showToast("+1 toward Word of Mouth (3/3)", 3000);
   };
 
+  const openPlansFromProfile = () => {
+    profileScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+    shouldRestoreProfileScrollRef.current = true;
+    setShowPlans(true);
+  };
+
+  const closePlans = () => {
+    setShowPlans(false);
+  };
+
   const handleScan = (product) => {
     incrementBadge("plastic_detective", 2);
     showToast("+2 scans recorded", 2000);
@@ -3480,7 +3492,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
       return;
     }
     if (showPlans) {
-      setShowPlans(false);
+      closePlans();
       return;
     }
     if (showAdminReview) {
@@ -3547,6 +3559,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
       shouldRestoreSearchScrollRef.current = false;
       return;
     }
+    if (screen === "profile" && shouldRestoreProfileScrollRef.current) {
+      contentScrollRef.current?.scrollTo({ top: profileScrollTopRef.current, left: 0, behavior: "auto" });
+      shouldRestoreProfileScrollRef.current = false;
+      return;
+    }
     contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
   const handleScreenAnimationStart = (screen, animationDefinition) => {
@@ -3564,8 +3581,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
     <AddProductScreen draft={addProductDraft} close={closeAddProduct} onSubmit={submitPendingProduct} />
   </motion.div>
 ) : showPlans ? (
-  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <PlansScreen close={() => setShowPlans(false)} />
+  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationComplete={(definition) => handleScreenAnimationStart("top", definition)}>
+    <PlansScreen close={closePlans} />
   </motion.div>
 ) : showAdminReview ? (
   <motion.div key="admin-review" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
@@ -3620,12 +3637,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
     <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
   </motion.div>
 ) : (
-  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : "top", definition)}>
+  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : tab === "profile" ? "profile" : "top", definition)}>
     {tab === "scan" && <ScanScreen products={products} openResult={handleScan} openAddProduct={openAddProduct} />}
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
     {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
-    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openBadge={(badge) => setBadgeDetail(badge)} openPlans={() => setShowPlans(true)} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
+    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openBadge={(badge) => setBadgeDetail(badge)} openPlans={openPlansFromProfile} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
   </motion.div>
 )}
 </AnimatePresence>
