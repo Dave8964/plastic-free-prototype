@@ -3547,6 +3547,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (showResult) setShowResult(false);
   };
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
+  const proPageTransition = { duration: 0.58, ease: [0.18, 0.88, 0.22, 1] };
   const productPageTransition = { ...pageTransition, duration: 0.4 };
   const returnToTabTransition = { ...pageTransition, duration: 0.24 };
   const scrollIncomingScreen = (screen) => {
@@ -3647,7 +3648,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
 <AnimatePresence>
-{showPlans && <motion.div key="plans-overlay" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 18 }} transition={pageTransition} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb]">
+{showPlans && <motion.div key="plans-overlay" initial={{ opacity: 0, x: 34, scale: 0.992 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 26, scale: 0.996 }} transition={proPageTransition} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb] will-change-transform">
   <PlansScreen close={closePlans} />
 </motion.div>}
 </AnimatePresence>
