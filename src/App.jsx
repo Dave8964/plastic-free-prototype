@@ -1051,14 +1051,9 @@ function useSwipeBack(onBack, enabled = true) {
     if (!enabled) return;
     if (event.target?.closest?.("button, a, input, textarea, select")) return;
     const bounds = event.currentTarget.getBoundingClientRect();
-    const edgeZone = Math.min(150, bounds.width * 0.42);
+    const edgeZone = Math.min(150, Math.max(72, bounds.width * 0.42));
     const localX = clientX - bounds.left;
     if (localX > edgeZone) return;
-    try {
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-    } catch {
-      // Some browser test surfaces do not expose capture for synthetic drags.
-    }
     gesture.current = { x: clientX, y: clientY, time: Date.now() };
   };
 
@@ -3558,7 +3553,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
   const proPageTransition = { duration: 0.58, ease: [0.18, 0.88, 0.22, 1] };
-  const proPageExitTransition = { duration: 0.18, ease: [0.32, 0.72, 0, 1] };
+  const proPageExitTransition = { duration: 0.24, ease: [0.2, 0.82, 0.2, 1] };
   const productPageTransition = { ...pageTransition, duration: 0.4 };
   const returnToTabTransition = { ...pageTransition, duration: 0.24 };
   const scrollIncomingScreen = (screen) => {
@@ -3585,7 +3580,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(canSwipeBack));
 
-  return <div className={`min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8 ${profile.darkMode ? "app-dark" : ""}`}><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col" {...appSwipeBackHandlers}><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className={`min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8 ${profile.darkMode ? "app-dark" : ""}`}><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
@@ -3659,8 +3654,9 @@ export default function PlasticFreeScannerDatabasePrototype() {
 </div>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
+{canSwipeBack && !showResult && !detail && !plasticListDetail && !showAddProduct && <div className="absolute left-0 top-0 z-50 h-full w-9 touch-pan-y" aria-hidden="true" {...appSwipeBackHandlers} />}
 <AnimatePresence>
-{showPlans && <motion.div key="plans-overlay" initial={{ x: 34, scale: 0.992 }} animate={{ x: 0, scale: 1, transition: proPageTransition }} exit={{ opacity: 0, scale: 0.998, transition: proPageExitTransition }} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb] shadow-[-18px_0_40px_rgba(0,0,0,0.08)] will-change-transform">
+{showPlans && <motion.div key="plans-overlay" initial={{ x: 34, scale: 0.992 }} animate={{ x: 0, scale: 1, transition: proPageTransition }} exit={{ opacity: 0, x: -18, transition: proPageExitTransition }} className="absolute inset-0 z-30 overflow-y-auto bg-[#f7f3eb] shadow-[-18px_0_40px_rgba(0,0,0,0.08)] will-change-transform">
   <PlansScreen close={closePlans} />
 </motion.div>}
 </AnimatePresence>
