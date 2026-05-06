@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useDragControls, useScroll, useTransform } from "framer-motion";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
@@ -3482,6 +3482,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const followerUsers = db.users.filter((user) => user.id !== "user_me");
   const pendingReviewCount = reviewSubmissions.filter((submission) => isPendingReviewProduct(submission.product)).length;
   const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || badgeDetail || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
+
+  useLayoutEffect(() => {
+    if (!showPlans) return;
+    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [showPlans]);
+
   const goBack = () => {
     if (viewUser) {
       setViewUser(null);
@@ -3581,7 +3587,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     <AddProductScreen draft={addProductDraft} close={closeAddProduct} onSubmit={submitPendingProduct} />
   </motion.div>
 ) : showPlans ? (
-  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationComplete={(definition) => handleScreenAnimationStart("top", definition)}>
+  <motion.div key="plans" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition}>
     <PlansScreen close={closePlans} />
   </motion.div>
 ) : showAdminReview ? (
