@@ -2330,7 +2330,7 @@ function BadgeCard({ badge, highlight, compact = false }) {
       <motion.div
         animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }}
         transition={{ duration: 0.65 }}
-        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/80 ${compact ? "right-3 top-3 h-9 w-9 text-xs" : "right-4 top-4 h-12 w-12 text-lg"}`}
+        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/80 ${compact ? "left-[54px] top-[52px] h-8 w-8 text-xs" : "left-[76px] top-[76px] h-11 w-11 text-lg"}`}
         style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}
       >
         {status.currentTier !== "Starter" && (
@@ -2376,23 +2376,22 @@ function BadgeCard({ badge, highlight, compact = false }) {
               className="pointer-events-none absolute inset-[4px] rounded-full border border-white/65"
               style={{ boxShadow: "inset 0 1px 3px rgba(255,255,255,0.96), inset 0 -2px 4px rgba(58,83,108,0.24)" }}
             />
-            <motion.div
+            {!compact && <motion.div
               className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
               style={{ background: "linear-gradient(118deg, transparent 34%, rgba(255,255,255,0.75) 48%, rgba(205,238,255,0.48) 52%, transparent 66%)" }}
               initial={{ x: "-125%", opacity: 0 }}
               animate={{ x: ["-125%", "125%"], opacity: [0, 0.72, 0] }}
               transition={{ duration: 2.35, repeat: Infinity, ease: "easeInOut", delay: 0.55 }}
-            />
+            />}
           </>
         )}
 
         {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/35 blur-sm" />}
 
-        <span className="relative z-10 flex h-full w-full items-center justify-center text-[0.72em] font-black tracking-[-0.06em]">{status.currentTier.slice(0, 1)}</span>
       </motion.div>
 
       <div className="relative z-[1] flex h-full flex-col">
-        <div className={`flex items-center ${compact ? "gap-2.5 pr-8" : "gap-4 pr-12"}`}>
+        <div className={`flex items-center ${compact ? "gap-2.5" : "gap-4"}`}>
           <div className={`flex shrink-0 items-center justify-center rounded-[20px] bg-[#f7f3eb] text-neutral-950 shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-14 w-14" : "h-20 w-20"}`}><BadgeGlyph id={badge.id} size={compact ? 30 : 42} /></div>
           <div className="min-w-0">
             <h4 className={`font-semibold tracking-[-0.035em] text-neutral-950 ${compact ? "line-clamp-2 text-[16px] leading-[1.06]" : "text-[24px] leading-[1.05]"}`}>{badge.name}</h4>
@@ -2403,12 +2402,12 @@ function BadgeCard({ badge, highlight, compact = false }) {
         {!compact && <p className="mt-4 line-clamp-2 text-[15px] leading-6 text-neutral-500">{badge.description}</p>}
 
         <div className={compact ? "mt-auto pt-3" : "mt-auto pt-5"}>
-          <div className={`mb-2 flex items-end justify-between font-semibold ${compact ? "text-[11px]" : "text-sm"}`}>
-            <span className="text-neutral-500">Next: {status.nextTier}</span>
-            <span className="tabular-nums tracking-[-0.02em] text-neutral-500">{progressText}</span>
+          <div className={`mb-2 flex items-end justify-between gap-2 font-semibold ${compact ? "text-[10px]" : "text-sm"}`}>
+            <span className="min-w-0 truncate whitespace-nowrap text-neutral-500">Next {status.nextTier}</span>
+            <span className="shrink-0 whitespace-nowrap tabular-nums tracking-[-0.02em] text-neutral-500">{progressText}</span>
           </div>
           <div className={`overflow-hidden rounded-full bg-[#f0ebe2] shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-2" : "h-2.5"}`}>
-            <motion.div className="h-full rounded-full bg-neutral-950" initial={{ width: 0 }} animate={{ width: `${status.percent}%` }} transition={{ type: "spring", stiffness: 110, damping: 20 }} />
+            <div className="h-full rounded-full bg-neutral-950" style={{ width: `${status.percent}%` }} />
           </div>
         </div>
       </div>
