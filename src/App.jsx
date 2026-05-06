@@ -2288,15 +2288,34 @@ function PlansScreen({ close }) {
   return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Plans" right={<BackButton onClick={close} />} /><div className="mb-5 grid grid-cols-2 rounded-full bg-white/70 p-1 shadow-sm backdrop-blur-xl"><button type="button" onClick={() => setBilling("monthly")} className={`rounded-full py-2 text-sm font-semibold transition ${billing === "monthly" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500"}`}>Monthly</button><button type="button" onClick={() => setBilling("yearly")} className={`rounded-full py-2 text-sm font-semibold transition ${billing === "yearly" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500"}`}>Yearly</button></div><div className="space-y-4"><Card><div className="p-5"><div className="flex items-start justify-between"><div><h2 className="text-2xl font-semibold tracking-[-0.04em] text-neutral-950">Free</h2><p className="mt-1 text-sm text-neutral-500">For casual product checks.</p></div><div className="rounded-full bg-[#f7f3eb] px-3 py-1 text-sm font-semibold text-neutral-700">$0</div></div><div className="mt-5 space-y-3">{freeFeatures.map((feature) => <div key={feature} className="flex gap-2 text-sm text-neutral-700"><span className="text-neutral-950">✓</span><span>{feature}</span></div>)}</div><Button variant="outline" className="mt-5 w-full bg-white">Current plan</Button></div></Card><div className="overflow-hidden rounded-[28px] bg-neutral-950 p-5 text-white shadow-[0_18px_42px_rgba(0,0,0,0.22)]"><div className="pointer-events-none -mx-5 -mt-5 mb-5 h-24 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_55%)]" /><div className="-mt-24 flex items-start justify-between"><div><div className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xl">Best value</div><h2 className="text-2xl font-semibold tracking-[-0.04em]">Pro</h2><p className="mt-1 text-sm text-neutral-300">For people actively reducing plastic exposure.</p></div><div className="text-right"><div className="text-xl font-semibold">{proPrice}</div>{billing === "yearly" && <div className="text-xs text-neutral-400">Save 33%</div>}</div></div><div className="mt-5 space-y-3">{proFeatures.map((feature) => <div key={feature} className="flex gap-2 text-sm text-neutral-200"><span>✓</span><span>{feature}</span></div>)}</div><Button variant="light" className="mt-5 w-full">Start Pro</Button></div></div></div>;
 }
 
+function BadgeGlyph({ id, size = 34 }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.15, strokeLinecap: "round", strokeLinejoin: "round" };
+  const icons = {
+    plastic_detective: <><circle cx="10" cy="10" r="5.5" /><path d="m14.5 14.5 5 5" /><path d="M8 9.5h4" /></>,
+    microplastic_hunter: <><path d="M9 3h6" /><path d="M10 3v6.5L6.5 17a3 3 0 0 0 2.7 4.3h5.6A3 3 0 0 0 17.5 17L14 9.5V3" /><path d="M8.4 16h7.2" /></>,
+    red_flag_radar: <><path d="M5 21V4" /><path d="M5 5h11l-2 4 2 4H5" /><path d="M18 18l1.5 1.5" /><path d="M19.5 14.5h2" /></>,
+    ingredient_inspector: <><rect x="6" y="3" width="12" height="18" rx="3" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h3" /></>,
+    data_driven: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 16v-5" /><path d="M12 16V8" /><path d="M16 16v-8" /></>,
+    community_voice: <><path d="M7 10a5 5 0 0 1 10 0c0 4-5 8-5 8s-5-4-5-8Z" /><path d="M9.5 10a2.5 2.5 0 0 0 5 0" /></>,
+    conscious_consumer: <><path d="M12 21s7-4.5 7-11.5A6.5 6.5 0 0 0 12 3a6.5 6.5 0 0 0-7 6.5C5 16.5 12 21 12 21Z" /><path d="M9 11.5 11.2 14 15.5 9" /></>,
+    deep_diver: <><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /><path d="M11 7v8" /><path d="M7 11h8" /></>,
+    barcode_whisperer: <><path d="M4 7V5a1 1 0 0 1 1-1h2" /><path d="M17 4h2a1 1 0 0 1 1 1v2" /><path d="M20 17v2a1 1 0 0 1-1 1h-2" /><path d="M7 20H5a1 1 0 0 1-1-1v-2" /><path d="M8 8v8" /><path d="M11 8v8" /><path d="M15 8v8" /><path d="M17 8v8" /></>,
+    eco_upgrade: <><path d="M6 16c7 0 11-4 12-11-7 .5-12 4-12 11Z" /><path d="M6 16c0 2.5 1.8 4 4.5 4 3 0 5-2 5.5-5" /><path d="M6 16 18 5" /></>,
+    plastic_pro: <><path d="M12 3 5 6v5c0 4.5 3 8.2 7 10 4-1.8 7-5.5 7-10V6l-7-3Z" /><path d="M9 12l2 2 4-5" /></>,
+    word_of_mouth: <><path d="M4 13h3l7 4V7l-7 4H4v2Z" /><path d="M17 9c1 .8 1.5 1.8 1.5 3s-.5 2.2-1.5 3" /></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" {...common} aria-hidden="true">{icons[id] || icons.plastic_detective}</svg>;
+}
+
 function BadgeCard({ badge, highlight, compact = false }) {
   const status = getBadgeStatus(badge);
   const progressText = badge.isPercent ? `${badge.progress}% / ${status.nextThreshold}%` : `${badge.progress} / ${status.nextThreshold}`;
   const tierStyles = {
-    Bronze: { medal: "linear-gradient(145deg, #f0c7a4 0%, #b8734a 34%, #6f3f28 66%, #d69a72 100%)" },
-    Silver: { medal: "linear-gradient(145deg, #e9ecef 0%, #a6adb5 34%, #66717c 66%, #c0c7ce 100%)" },
-    Gold: { medal: "linear-gradient(145deg, #fff8d6 0%, #ffe26a 24%, #f7b51e 48%, #b97800 70%, #ffe99a 100%)", shadow: "0 10px 24px rgba(247,181,30,0.38), 0 2px 7px rgba(93,55,0,0.24)" },
-    Platinum: { medal: "linear-gradient(145deg, #ffffff 0%, #eaf7ff 20%, #b7d4e8 42%, #7f96ad 62%, #f9fdff 82%, #cfe7f6 100%)", shadow: "0 11px 26px rgba(164,205,232,0.46), 0 2px 8px rgba(44,63,82,0.24)" },
-    Starter: { medal: "#d1d5db" }
+    Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
+    Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
+    Gold: { medal: "radial-gradient(circle at 30% 24%, #fff9d7 0%, #ffd54a 35%, #c99317 70%, #7a4a00 100%)", text: "text-[#ad7500]", shadow: "0 10px 22px rgba(210,152,22,0.34), inset 0 1px 2px rgba(255,255,255,0.88)" },
+    Platinum: { medal: "radial-gradient(circle at 30% 22%, #ffffff 0%, #e5f8ff 30%, #b7d8ec 58%, #6f879c 100%)", text: "text-[#66869d]", shadow: "0 10px 24px rgba(148,199,228,0.38), inset 0 1px 2px rgba(255,255,255,0.92)" },
+    Starter: { medal: "linear-gradient(145deg, #f3f4f6, #cfd4da)", text: "text-neutral-500" }
   };
   const tier = tierStyles[status.currentTier] || tierStyles.Starter;
 
@@ -2306,15 +2325,12 @@ function BadgeCard({ badge, highlight, compact = false }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
       whileTap={{ scale: 0.985 }}
-      className={`relative overflow-hidden rounded-[26px] border border-white/80 bg-white shadow-[0_12px_30px_rgba(0,0,0,0.075)] ring-1 ring-black/[0.03] ${compact ? "min-h-[176px] p-3" : "min-h-[246px] p-5"}`}
+      className={`relative overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.03] ${compact ? "min-h-[132px] p-3" : "min-h-[210px] p-4"}`}
     >
-      
-      
-
       <motion.div
         animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }}
         transition={{ duration: 0.65 }}
-        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/75 ${compact ? "right-3 top-3 h-8 w-8 text-xs" : "right-5 top-5 h-11 w-11 text-lg"}`}
+        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/80 ${compact ? "right-3 top-3 h-9 w-9 text-xs" : "right-4 top-4 h-12 w-12 text-lg"}`}
         style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}
       >
         {status.currentTier !== "Starter" && (
@@ -2372,23 +2388,26 @@ function BadgeCard({ badge, highlight, compact = false }) {
 
         {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/35 blur-sm" />}
 
-        <span className="relative z-10 flex h-full w-full items-center justify-center">★</span>
+        <span className="relative z-10 flex h-full w-full items-center justify-center text-[0.72em] font-black tracking-[-0.06em]">{status.currentTier.slice(0, 1)}</span>
       </motion.div>
 
-      <div className="relative z-[1] flex h-full flex-col text-center">
-        <div className="flex justify-center">
-          <div className={`flex items-center justify-center rounded-full bg-white/95 shadow-[0_8px_22px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03] ${compact ? "mt-5 h-[76px] w-[76px] text-[38px]" : "mt-6 h-28 w-28 text-6xl"}`}>{badge.icon}</div>
+      <div className="relative z-[1] flex h-full flex-col">
+        <div className={`flex items-center ${compact ? "gap-2.5 pr-8" : "gap-4 pr-12"}`}>
+          <div className={`flex shrink-0 items-center justify-center rounded-[20px] bg-[#f7f3eb] text-neutral-950 shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-14 w-14" : "h-20 w-20"}`}><BadgeGlyph id={badge.id} size={compact ? 30 : 42} /></div>
+          <div className="min-w-0">
+            <h4 className={`font-semibold tracking-[-0.035em] text-neutral-950 ${compact ? "line-clamp-2 text-[16px] leading-[1.06]" : "text-[24px] leading-[1.05]"}`}>{badge.name}</h4>
+            <div className={`mt-1 text-xs font-semibold ${tier.text}`}>{status.currentTier}</div>
+          </div>
         </div>
 
-        <h4 className={`font-semibold tracking-[-0.035em] text-neutral-950 ${compact ? "mt-4 text-[18px] leading-[1.08]" : "mt-6 text-[28px] leading-[1.05]"}`}>{badge.name}</h4>
-        <p className={`mx-auto text-neutral-500 ${compact ? "mt-2 line-clamp-3 min-h-[54px] max-w-[150px] text-[13px] leading-[18px]" : "mt-3 line-clamp-3 min-h-[78px] max-w-[320px] text-[18px] leading-7"}`}>{badge.description}</p>
+        {!compact && <p className="mt-4 line-clamp-2 text-[15px] leading-6 text-neutral-500">{badge.description}</p>}
 
         <div className={compact ? "mt-auto pt-3" : "mt-auto pt-5"}>
-          <div className={`mb-2 flex items-end justify-between font-semibold ${compact ? "text-[13px]" : "text-lg"}`}>
-            <span className="text-neutral-950">{status.currentTier}</span>
+          <div className={`mb-2 flex items-end justify-between font-semibold ${compact ? "text-[11px]" : "text-sm"}`}>
+            <span className="text-neutral-500">Next: {status.nextTier}</span>
             <span className="tabular-nums tracking-[-0.02em] text-neutral-500">{progressText}</span>
           </div>
-          <div className={`overflow-hidden rounded-full bg-white/95 shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-2.5" : "h-3.5"}`}>
+          <div className={`overflow-hidden rounded-full bg-[#f0ebe2] shadow-inner ring-1 ring-black/[0.03] ${compact ? "h-2" : "h-2.5"}`}>
             <motion.div className="h-full rounded-full bg-neutral-950" initial={{ width: 0 }} animate={{ width: `${status.percent}%` }} transition={{ type: "spring", stiffness: 110, damping: 20 }} />
           </div>
         </div>
