@@ -1823,8 +1823,12 @@ function ProductListScreen({ title, products, openResult, close }) {
   return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title={title} right={<BackButton onClick={close} />} /><div className="space-y-2">{products.length ? products.map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <Card><div className="p-5 text-center text-sm text-neutral-500">No products yet.</div></Card>}</div></div>;
 }
 
-function SuggestedUser({ user }) {
-  return <div className="flex items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-white font-semibold text-neutral-700">{user.avatar}</div><div className="min-w-0 flex-1"><div className="font-medium text-neutral-950">{user.displayName}</div><div className="text-sm text-neutral-500">{user.role}</div></div><Button variant="outline" className="px-3 py-1 text-xs">Follow</Button></div>;
+function PeopleListScreen({ title, users, openUserProfile, close }) {
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title={title} right={<BackButton onClick={close} />} /><div className="space-y-2">{users.length ? users.map((user) => <div key={user.id} role="button" tabIndex={0} onClick={() => openUserProfile(user)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openUserProfile(user); }} className="cursor-pointer text-left transition active:scale-[0.99]"><SuggestedUser user={user} actionLabel="View" /></div>) : <Card><div className="p-5 text-center text-sm text-neutral-500">No people yet.</div></Card>}</div></div>;
+}
+
+function SuggestedUser({ user, actionLabel = "Follow" }) {
+  return <div className="flex items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-white font-semibold text-neutral-700">{user.avatar}</div><div className="min-w-0 flex-1"><div className="font-medium text-neutral-950">{user.displayName}</div><div className="text-sm text-neutral-500">{user.role}</div></div><Button variant="outline" className="px-3 py-1 text-xs">{actionLabel}</Button></div>;
 }
 
 function SocialActionButton({ children, onClick, muted = false }) {
@@ -2506,11 +2510,13 @@ function AdminReviewScreen({ submissions, close, onRefresh, onApprove, onNeedsIn
   );
 }
 
-function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, openAdminReview, pendingReviewCount = 0, profile, favoriteIds = [], localeCopy = getLocaleCopy() }) {
-  const following = db.follows.filter((follow) => follow.followerId === "user_me").length;
-  const followers = db.follows.filter((follow) => follow.followedId === "user_me").length + 12;
+function ProfileStatButton({ value, label, onClick }) {
+  return <button type="button" onClick={onClick} className="rounded-2xl py-2 transition hover:bg-black/5 active:scale-[0.98]"><div className="text-2xl font-semibold">{value}</div><div className="text-xs text-neutral-500">{label}</div></button>;
+}
+
+function ProfileScreen({ products, badges, highlightBadge, openResult, openSettings, openFavorites, openBadges, openPlans, openAdminReview, pendingReviewCount = 0, profile, favoriteIds = [], scanCount = db.scans.length, followingCount = 0, followersCount = 0, openScans, openFollowing, openFollowers, localeCopy = getLocaleCopy() }) {
   const saved = favoriteIds.map((productId) => products.find((product) => product.id === productId)).filter(Boolean);
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-3"><div><div className="text-2xl font-semibold">{db.scans.length}</div><div className="text-xs text-neutral-500">Scans</div></div><div><div className="text-2xl font-semibold">{following}</div><div className="text-xs text-neutral-500">Following</div></div><div><div className="text-2xl font-semibold">{followers}</div><div className="text-xs text-neutral-500">Followers</div></div><div><div className="text-2xl font-semibold">{saved.length}</div><div className="text-xs text-neutral-500">{localeCopy.favorites}</div></div></div></div></Card><button type="button" onClick={openAdminReview} className="mt-5 flex w-full items-center justify-between rounded-3xl bg-neutral-950 p-4 text-left text-white shadow-sm transition active:scale-[0.99]"><div><div className="font-semibold">Developer review queue</div><p className="mt-1 text-sm text-neutral-300">Approve submitted products from phone or desktop.</p></div><span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-3 text-sm font-bold text-neutral-950">{pendingReviewCount}</span></button><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-4"><Header title="Profile" right={<Button onClick={openSettings} variant="outline" className="bg-white">Settings</Button>} /><Card><div className="p-5 text-center"><div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white">D</div><h2 className="text-2xl font-semibold tracking-tight text-neutral-950">{profile.firstName} {profile.lastName.charAt(0)}.</h2><p className="text-sm text-neutral-500">{profile.email}</p><div className="mt-5 grid grid-cols-4 gap-2"><ProfileStatButton value={scanCount} label="Scans" onClick={openScans} /><ProfileStatButton value={followingCount} label="Following" onClick={openFollowing} /><ProfileStatButton value={followersCount} label="Followers" onClick={openFollowers} /><ProfileStatButton value={saved.length} label={localeCopy.favorites} onClick={openFavorites} /></div></div></Card><button type="button" onClick={openAdminReview} className="mt-5 flex w-full items-center justify-between rounded-3xl bg-neutral-950 p-4 text-left text-white shadow-sm transition active:scale-[0.99]"><div><div className="font-semibold">Developer review queue</div><p className="mt-1 text-sm text-neutral-300">Approve submitted products from phone or desktop.</p></div><span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-3 text-sm font-bold text-neutral-950">{pendingReviewCount}</span></button><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">{localeCopy.favorites}</h3><button type="button" onClick={openFavorites} className="text-sm font-medium text-neutral-500">See all</button></div><div className="space-y-2">{saved.length ? saved.slice(0, 3).map((product) => <ProductRow key={product.id} product={product} onClick={() => openResult(product)} />) : <p className="text-sm text-neutral-500">{localeCopy.favorite} products will appear here.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-neutral-950">Badges</h3><button type="button" onClick={openBadges} className="text-sm font-medium text-neutral-500">See all</button></div><div className="grid grid-cols-2 gap-3">{(badges || []).slice(0, 4).map((badge) => <BadgeCard key={badge.id} badge={badge} highlight={highlightBadge === badge.id} compact />)}</div></div><div className="mt-5 rounded-3xl bg-neutral-950 p-5 text-white shadow-sm"><div className="text-lg font-semibold">Upgrade to Pro</div><p className="mt-2 text-sm text-neutral-300">Advanced search, strict mode, offline scans, and early database access.</p><Button onClick={openPlans} variant="light" className="mt-4">View plans</Button></div></div>;
 }
 
 
@@ -3006,6 +3012,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [shareProduct, setShareProduct] = useState(null);
   const [historyList, setHistoryList] = useState(null);
+  const [peopleList, setPeopleList] = useState(null);
   const [isSignedOut, setIsSignedOut] = useState(false);
   const [showBadges, setShowBadges] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -3113,6 +3120,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setAddProductAsSheet(false);
     setShareProduct(null);
     setHistoryList(null);
+    setPeopleList(null);
   };
 
   const openResult = (product) => {
@@ -3384,8 +3392,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const scannedProducts = scanHistory.map((scan) => products.find((product) => product.id === scan.productId)).filter(Boolean);
   const searchedProducts = products.filter((product) => !scanHistory.some((scan) => scan.productId === product.id));
+  const followingUsers = db.follows.filter((follow) => follow.followerId === "user_me").map((follow) => db.users.find((user) => user.id === follow.followedId)).filter(Boolean);
+  const followerUsers = db.users.filter((user) => user.id !== "user_me");
   const pendingReviewCount = reviewSubmissions.filter((submission) => isPendingReviewProduct(submission.product)).length;
-  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
+  const hideNav = viewUser || showResult || detail || plasticListDetail || showSettings || showFavorites || showBadges || showDeleteAccount || shareProduct || historyList || peopleList || showNotifications || showPlans || showAdminReview || (showAddProduct && !addProductAsSheet);
   const goBack = () => {
     if (viewUser) {
       setViewUser(null);
@@ -3413,6 +3423,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }
     if (historyList) {
       setHistoryList(null);
+      return;
+    }
+    if (peopleList) {
+      setPeopleList(null);
       return;
     }
     if (showDeleteAccount) {
@@ -3491,6 +3505,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
   <motion.div key="history-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <ProductListScreen title={historyList.title} products={historyList.products} openResult={openResult} close={() => setHistoryList(null)} />
   </motion.div>
+) : peopleList ? (
+  <motion.div key="people-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
+    <PeopleListScreen title={peopleList.title} users={peopleList.users} openUserProfile={(user) => setViewUser(user)} close={() => setPeopleList(null)} />
+  </motion.div>
 ) : showDeleteAccount ? (
   <motion.div key="delete" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <DeleteAccountScreen close={() => setShowDeleteAccount(false)} onConfirmDelete={confirmDeleteAccount} />
@@ -3525,7 +3543,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
     {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
-    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} localeCopy={localeCopy} />}
+    {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openPlans={() => setShowPlans(true)} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
   </motion.div>
 )}
 </AnimatePresence>
