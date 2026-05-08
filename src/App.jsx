@@ -1153,7 +1153,9 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false, pending = f
 }
 
 function ProductRow({ product, onClick }) {
-  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={product.name} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{product.name}</span></div><div className="mt-0.5 text-sm text-neutral-500">{product.brand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div></Card></FastTapButton>;
+  const displayName = isPendingPlaceholderText(product.name) ? `Barcode ${product.barcode || "pending"}` : product.name;
+  const displayBrand = isPendingPlaceholderText(product.brand, "brand") ? "Pending review" : product.brand;
+  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={displayName} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{displayName}</span></div><div className="mt-0.5 text-sm text-neutral-500">{displayBrand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div></Card></FastTapButton>;
 }
 
 function normalizeBarcode(value = "") {
@@ -1246,14 +1248,29 @@ async function fetchBackendSubmissions() {
   const response = await fetch(`/api/submissions?userId=${APP_USER_ID}`);
   if (!response.ok) throw new Error("Backend submissions unavailable.");
   const data = await response.json();
-  return data.submissions || [];
+  return (data.submissions || []).map(normalizeSubmissionRecord);
 }
 
 async function fetchAllBackendSubmissions() {
   const response = await fetch("/api/submissions?admin=1");
   if (!response.ok) throw new Error("Backend review queue unavailable.");
   const data = await response.json();
-  return data.submissions || [];
+  return (data.submissions || []).map(normalizeSubmissionRecord);
+}
+
+function normalizeSubmissionRecord(submission = {}) {
+  const photos = submission.photos || submission.product?.submittedPhotos || {};
+  const product = submission.product ? {
+    ...submission.product,
+    imageUrl: submission.product.imageUrl || photos.front?.dataUrl || "",
+    submittedPhotos: photos,
+  } : submission.product;
+  return {
+    ...submission,
+    product,
+    parts: Array.isArray(submission.parts) ? submission.parts : [],
+    photos,
+  };
 }
 
 async function saveBackendSubmission(submission) {
@@ -1333,6 +1350,20 @@ function createPendingProductFromDraft(draft = {}, photos = {}) {
   return { product, parts };
 }
 
+function isPendingPlaceholderText(value = "", kind = "name") {
+  const text = String(value || "").trim().toLowerCase();
+  return !text || text === (kind === "brand" ? "brand pending" : "pending product");
+}
+
+function getInitialSubmissionPhotos(draft = {}) {
+  const existingPhotos = draft.submittedPhotos || draft.photos || {};
+  const front = existingPhotos.front || (draft.imageUrl ? { name: "Front packaging", type: "image/jpeg", dataUrl: draft.imageUrl } : "");
+  return {
+    front,
+    symbols: existingPhotos.symbols || existingPhotos.materials || "",
+  };
+}
+
 function BottomNav({ tab, setTab }) {
   return <div className="relative z-20 border-t border-white/70 bg-white/72 px-2 pb-[max(0.35rem,calc(env(safe-area-inset-bottom)*0.35))] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl"><div className="grid grid-cols-5 gap-1">{getBottomNavItems().map(([key, type, label]) => { const isActive = tab === key; return <FastTapButton key={key} onActivate={() => setTab(key)} className={`flex min-h-[54px] touch-manipulation flex-col items-center gap-1 rounded-full px-1 py-2 text-xs transition ${isActive ? "bg-neutral-200 text-neutral-950 shadow-inner" : "text-neutral-500 hover:bg-black/5"}`}><Icon type={type} active={isActive} animate={isActive} /><span className={isActive ? "font-semibold text-neutral-950" : "text-neutral-500"}>{label}</span></FastTapButton>; })}</div></div>;
 }
@@ -1403,10 +1434,13 @@ function ScanScreen({ products, openResult, openAddProduct }) {
   };
 
   const createMissingProductDraft = (source = openFoodFactsProduct, barcode = scannedBarcode) => ({
+    id: source?.id,
     barcode: normalizeBarcode(barcode),
     name: source?.name || "",
     brand: source?.brand || "",
     imageUrl: source?.imageUrl || "",
+    submittedPhotos: source?.submittedPhotos || source?.photos || {},
+    categoryId: source?.categoryId,
     quantity: source?.quantity || "",
     source: source?.source || "Barcode scan",
   });
@@ -1534,10 +1568,10 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     lastScannedRef.current = "";
     pendingBarcodeRef.current = { code: "", count: 0, seenAt: 0 };
     resolvingBarcodeRef.current = false;
-    window.setTimeout(() => startBarcodeScanner(), 560);
+    window.setTimeout(() => startBarcodeScanner(), 900);
   };
 
-  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><video ref={backgroundVideoRef} className={`absolute inset-0 h-full w-full scale-105 object-cover blur-md transition-opacity duration-300 ${isScanning ? "opacity-100" : "opacity-60"}`} muted playsInline autoPlay /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08)_0%,rgba(24,24,27,0.17)_56%,rgba(9,9,11,0.29)_100%)]" /><div className="absolute inset-0 bg-neutral-950/5" /><div className="relative z-10 flex items-center justify-between px-8 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/15 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 flex flex-1 flex-col items-center justify-start px-4 pt-7 text-center"><div className="w-full"><div className="relative mx-auto h-[min(78vw,21.5rem)] w-[min(78vw,21.5rem)] overflow-hidden rounded-[2.4rem] border border-white/80 bg-neutral-950 shadow-[0_26px_70px_rgba(0,0,0,0.42)]"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay />{isScanning && <><motion.div className="pointer-events-none absolute inset-x-7 top-1/2 h-16 rounded-full bg-[linear-gradient(180deg,transparent,rgba(158,219,169,0.16),rgba(255,255,255,0.3),rgba(158,219,169,0.2),transparent)] blur-sm" initial={{ y: -128, opacity: 0.28 }} animate={{ y: [-128, 128, -128], opacity: [0.24, 0.96, 0.24] }} transition={{ duration: 2.05, repeat: Infinity, ease: "easeInOut" }} /><motion.div className="pointer-events-none absolute inset-x-7 top-1/2 h-[3px] rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.95),0_0_28px_rgba(158,219,169,0.95),0_0_52px_rgba(158,219,169,0.55)]" initial={{ y: -112, opacity: 0.28 }} animate={{ y: [-112, 112, -112], opacity: [0.34, 1, 0.34] }} transition={{ duration: 2.05, repeat: Infinity, ease: "easeInOut" }} /><motion.div className="pointer-events-none absolute inset-x-10 top-1/2 h-9 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.34),transparent_24%,transparent_76%,rgba(255,255,255,0.28),transparent)]" initial={{ y: -129, opacity: 0.12 }} animate={{ y: [-129, 95, -129], opacity: [0.1, 0.55, 0.1] }} transition={{ duration: 2.05, repeat: Infinity, ease: "easeInOut" }} /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_42%,rgba(158,219,169,0.12)_72%,transparent_100%)]" /></>}{scanCompletePulse && <motion.div key={scanCompletePulse} className={`pointer-events-none absolute inset-0 flex items-center justify-center ${scanCompletePulse === "missing" ? "bg-red-500/14" : "bg-emerald-400/14"}`} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 0.82, ease: [0.22, 1, 0.36, 1] }}><motion.div className={`h-28 w-28 rounded-full border ${scanCompletePulse === "missing" ? "border-red-200/80 shadow-[0_0_45px_rgba(248,113,113,0.45)]" : "border-emerald-100/90 shadow-[0_0_48px_rgba(158,219,169,0.75)]"}`} initial={{ scale: 0.72, opacity: 0 }} animate={{ scale: [0.72, 1.35], opacity: [0, 1, 0] }} transition={{ duration: 0.82, ease: [0.22, 1, 0.36, 1] }} /></motion.div>}<span className="absolute left-8 top-8 h-9 w-9 rounded-tl-xl border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-9 w-9 rounded-tr-xl border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-9 w-9 rounded-bl-xl border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-9 w-9 rounded-br-xl border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center">{isBarcodeNotFound ? <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/50 bg-white/12 text-6xl font-semibold text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md">!</div> : <BarcodeScanIcon size={118} active={false} />}</div>}</div><p className="mx-auto mt-5 max-w-[330px] min-h-[48px] text-sm leading-6 text-white/75">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/55">Barcode {scannedBarcode}</p>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}{isBarcodeNotFound && <div className="mx-auto mt-4 grid max-w-[330px] grid-cols-2 gap-2"><Button onClick={startBarcodeScanner} variant="light">Scan again</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="light" className="border border-white/20 bg-white/15 text-white hover:bg-white/20">Add product</Button></div>}</div></div><AnimatePresence>{matchedProduct && <motion.div key="scan-result-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }} className="absolute inset-0 z-30 flex items-end bg-neutral-950/30 backdrop-blur-md" onClick={dismissMatchedProduct}><motion.div key="scan-result-sheet" initial={{ y: "104%" }} animate={{ y: 0 }} exit={{ y: "104%", transition: { duration: 0.52, ease: [0.32, 0.72, 0, 1] } }} drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.16 }} onDragEnd={(_, info) => { if (info.offset.y > 94 || info.velocity.y > 720) dismissMatchedProduct(); }} transition={{ type: "spring", stiffness: 220, damping: 34, mass: 1.12 }} className="w-full rounded-t-[2rem] bg-white p-4 text-left text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.35)]" onClick={(event) => event.stopPropagation()}><div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-200" /><div className="mb-3 flex items-center justify-between gap-3"><div className="min-w-0"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">{matchedProduct.scorePending ? "Pending product found" : "Product found"}</div><div className="truncate text-lg font-semibold tracking-tight text-neutral-950">{matchedProduct.name}</div></div><BackButton onClick={dismissMatchedProduct} variant="outline" /></div><div className="rounded-3xl bg-[#f7f3eb] p-3"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /></div><Button onClick={() => openAddProduct({ ...createMissingProductDraft(matchedProduct), packagingEvidence: true, source: "Packaging evidence update" })} variant="solid" className="mt-3 w-full">Add packaging evidence</Button></motion.div></motion.div>}</AnimatePresence></div>;
+  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><video ref={backgroundVideoRef} className={`absolute inset-0 h-full w-full scale-105 object-cover blur-md transition-opacity duration-300 ${isScanning ? "opacity-100" : "opacity-60"}`} muted playsInline autoPlay /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08)_0%,rgba(24,24,27,0.17)_56%,rgba(9,9,11,0.29)_100%)]" /><div className="absolute inset-0 bg-neutral-950/5" /><div className="relative z-10 flex items-center justify-between px-8 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/15 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 flex flex-1 flex-col items-center justify-start px-4 pt-7 text-center"><div className="w-full"><div className="relative mx-auto h-[min(78vw,21.5rem)] w-[min(78vw,21.5rem)] overflow-hidden rounded-[2.4rem] border border-white/80 bg-neutral-950 shadow-[0_26px_70px_rgba(0,0,0,0.42)]"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay />{isScanning && <><motion.div className="pointer-events-none absolute inset-x-7 top-1/2 h-16 rounded-full bg-[linear-gradient(180deg,transparent,rgba(158,219,169,0.16),rgba(255,255,255,0.3),rgba(158,219,169,0.2),transparent)] blur-sm" initial={{ y: -128, opacity: 0.28 }} animate={{ y: [-128, 128, -128], opacity: [0.24, 0.96, 0.24] }} transition={{ duration: 2.05, repeat: Infinity, ease: "easeInOut" }} /><motion.div className="pointer-events-none absolute inset-x-7 top-1/2 h-[3px] rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.95),0_0_28px_rgba(158,219,169,0.95),0_0_52px_rgba(158,219,169,0.55)]" initial={{ y: -112, opacity: 0.28 }} animate={{ y: [-112, 112, -112], opacity: [0.34, 1, 0.34] }} transition={{ duration: 2.05, repeat: Infinity, ease: "easeInOut" }} /><motion.div className="pointer-events-none absolute inset-x-10 top-1/2 h-9 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.34),transparent_24%,transparent_76%,rgba(255,255,255,0.28),transparent)]" initial={{ y: -129, opacity: 0.12 }} animate={{ y: [-129, 95, -129], opacity: [0.1, 0.55, 0.1] }} transition={{ duration: 2.05, repeat: Infinity, ease: "easeInOut" }} /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_42%,rgba(158,219,169,0.12)_72%,transparent_100%)]" /></>}{scanCompletePulse && <motion.div key={scanCompletePulse} className={`pointer-events-none absolute inset-0 flex items-center justify-center ${scanCompletePulse === "missing" ? "bg-red-500/14" : "bg-emerald-400/14"}`} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 0.82, ease: [0.22, 1, 0.36, 1] }}><motion.div className={`h-28 w-28 rounded-full border ${scanCompletePulse === "missing" ? "border-red-200/80 shadow-[0_0_45px_rgba(248,113,113,0.45)]" : "border-emerald-100/90 shadow-[0_0_48px_rgba(158,219,169,0.75)]"}`} initial={{ scale: 0.72, opacity: 0 }} animate={{ scale: [0.72, 1.35], opacity: [0, 1, 0] }} transition={{ duration: 0.82, ease: [0.22, 1, 0.36, 1] }} /></motion.div>}<span className="absolute left-8 top-8 h-9 w-9 rounded-tl-xl border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-9 w-9 rounded-tr-xl border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-9 w-9 rounded-bl-xl border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-9 w-9 rounded-br-xl border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center">{isBarcodeNotFound ? <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/50 bg-white/12 text-6xl font-semibold text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md">!</div> : <BarcodeScanIcon size={118} active={false} />}</div>}</div><p className="mx-auto mt-5 max-w-[330px] min-h-[48px] text-sm leading-6 text-white/75">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/55">Barcode {scannedBarcode}</p>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}{isBarcodeNotFound && <div className="mx-auto mt-4 grid max-w-[330px] grid-cols-2 gap-2"><Button onClick={startBarcodeScanner} variant="light">Scan again</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="light" className="border border-white/20 bg-white/15 text-white hover:bg-white/20">Add product</Button></div>}</div></div><AnimatePresence>{matchedProduct && <motion.div key="scan-result-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.34, ease: [0.32, 0.72, 0, 1] }} className="absolute inset-0 z-30 flex items-end bg-neutral-950/30 backdrop-blur-md" onClick={dismissMatchedProduct}><motion.div key="scan-result-sheet" initial={{ y: "104%" }} animate={{ y: 0 }} exit={{ y: "104%", transition: { duration: 0.72, ease: [0.22, 1, 0.36, 1] } }} drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.14 }} onDragEnd={(_, info) => { if (info.offset.y > 112 || info.velocity.y > 860) dismissMatchedProduct(); }} transition={{ type: "spring", stiffness: 190, damping: 34, mass: 1.18 }} className="w-full rounded-t-[2rem] bg-white p-4 text-left text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.35)]" onClick={(event) => event.stopPropagation()}><div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-200" /><div className="mb-3 flex items-center justify-between gap-3"><div className="min-w-0"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">{matchedProduct.scorePending ? "Pending product found" : "Product found"}</div><div className="truncate text-lg font-semibold tracking-tight text-neutral-950">{isPendingPlaceholderText(matchedProduct.name) ? `Barcode ${matchedProduct.barcode || scannedBarcode}` : matchedProduct.name}</div></div><BackButton onClick={dismissMatchedProduct} variant="outline" /></div><div className="rounded-3xl bg-[#f7f3eb] p-3"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /></div><Button onClick={() => openAddProduct({ ...createMissingProductDraft(matchedProduct), packagingEvidence: true, source: "Packaging evidence update" })} variant="solid" className="mt-3 w-full">Add packaging evidence</Button></motion.div></motion.div>}</AnimatePresence></div>;
 }
 
 function SourceCard({ link }) {
@@ -1709,13 +1743,14 @@ function PhotoUploadSlot({ label, value, onChange, accepted = false, showCaption
 }
 
 function AddProductScreen({ close, draft = {}, onSubmit }) {
+  const initialPhotos = getInitialSubmissionPhotos(draft);
   const [flashOn, setFlashOn] = useState(false);
-  const [photos, setPhotos] = useState({ front: "", symbols: "" });
-  const [frontPhotoAccepted, setFrontPhotoAccepted] = useState(false);
+  const [photos, setPhotos] = useState(initialPhotos);
+  const [frontPhotoAccepted, setFrontPhotoAccepted] = useState(Boolean(initialPhotos.front));
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const [name, setName] = useState(draft.name || "");
-  const [brand, setBrand] = useState(draft.brand || "");
+  const [name, setName] = useState(isPendingPlaceholderText(draft.name) ? "" : draft.name || "");
+  const [brand, setBrand] = useState(isPendingPlaceholderText(draft.brand, "brand") ? "" : draft.brand || "");
   const [barcode, setBarcode] = useState(draft.barcode || "");
   const [category, setCategory] = useState(draft.packagingScan ? "Other" : "Food and drink");
   const [submitted, setSubmitted] = useState(false);
@@ -1730,7 +1765,7 @@ function AddProductScreen({ close, draft = {}, onSubmit }) {
     setFrontPhotoAccepted(Boolean(value) && accepted);
   };
   const hasRequiredText = name.trim() && brand.trim();
-  const hasAcceptedFrontPhoto = draft.imageUrl || (photos.front && frontPhotoAccepted);
+  const hasAcceptedFrontPhoto = photos.front && frontPhotoAccepted;
   const canSubmit = draft.packagingEvidence ? hasRequiredText && (hasAcceptedFrontPhoto || photos.symbols) : hasRequiredText && hasAcceptedFrontPhoto;
   const showRequiredTextError = submitAttempted && !hasRequiredText;
 
@@ -2747,6 +2782,8 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   const isFavorite = favoriteIds.includes(product.id);
   const productPhotoMissing = imageMissing || !hasProductPhoto(product);
   const isNearIdealScore = !product.scorePending && product.score >= 92;
+  const displayName = isPendingPlaceholderText(product.name) ? `Barcode ${product.barcode || "pending"}` : product.name;
+  const displayBrand = isPendingPlaceholderText(product.brand, "brand") ? "Pending review" : product.brand;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
   const recyclingSummaryStatuses = recyclingRules.map((rule, index) => isAttachedCanLiner(product.parts[index], product) ? "limited" : rule.status);
   const recyclingStatus = combineRecyclability(recyclingSummaryStatuses);
@@ -2754,9 +2791,9 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   const handleNativeShare = async () => {
     const appName = "PlasticFree";
     const userName = profile?.firstName || "Someone";
-    const shareText = `${userName} shared ${product.name} from ${appName} for you to check out.`;
+    const shareText = `${userName} shared ${displayName} from ${appName} for you to check out.`;
     const shareData = {
-      title: `${product.brand} ${product.name}`,
+      title: `${displayBrand} ${displayName}`,
       text: shareText,
       url: `https://plasticfree.app/product/${product.id}`
     };
@@ -2882,7 +2919,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
             className="relative mx-auto flex items-start justify-center rounded-[2rem] transition active:scale-[0.98]"
             aria-label={productPhotoMissing ? "Add product image" : "Open larger product image"}
           >
-            <ProductImage src={product.imageUrl} alt={product.name} className="h-36 w-36 rounded-3xl object-cover" onMissing={() => setImageMissing(true)} />
+            <ProductImage src={product.imageUrl} alt={displayName} className="h-36 w-36 rounded-3xl object-cover" onMissing={() => setImageMissing(true)} />
             {productPhotoMissing && (
               <span className="absolute inset-x-3 bottom-3 rounded-full bg-white/92 px-3 py-1.5 text-xs font-semibold text-neutral-950 shadow-sm ring-1 ring-black/5 backdrop-blur">
                 Add image +
@@ -2925,8 +2962,8 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
             )}
           </div>
 
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{product.name}</h2>
-          <p className="text-neutral-500">{product.brand}</p>
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{displayName}</h2>
+          <p className="text-neutral-500">{displayBrand}</p>
           <p className="mt-2 text-xs text-neutral-500">
             {product.category?.name} • {reviewStatusLabel(product.verification)} • {dataQualityLabel(product.confidence)}
           </p>
@@ -3141,7 +3178,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
         setSubmittedParts(submissions.flatMap((submission) => Array.isArray(submission.parts) ? submission.parts : []));
         writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
       } catch {
-        const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+        const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []).map(normalizeSubmissionRecord);
         if (!active) return;
         setReviewSubmissions(localSubmissions);
         setSubmittedProducts(localSubmissions.map((submission) => submission.product).filter(isPublishableSubmissionProduct));
@@ -3248,7 +3285,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
       writeLocalJson(LOCAL_SUBMISSIONS_KEY, submissions);
       return submissions;
     } catch {
-      const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
+      const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []).map(normalizeSubmissionRecord);
       setReviewSubmissions(localSubmissions);
       return localSubmissions;
     }
@@ -3299,14 +3336,24 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const submitPendingProduct = (draft, photos) => {
     const { product, parts } = createPendingProductFromDraft(draft, photos);
-    const submission = { id: product.id, product, parts, photos };
-    setReviewSubmissions((current) => current.some((item) => item.id === product.id) ? current.map((item) => item.id === product.id ? submission : item) : [submission, ...current]);
-    setSubmittedProducts((current) => current.some((item) => item.id === product.id) ? current.map((item) => item.id === product.id ? product : item) : [product, ...current]);
+    const productBarcode = normalizeBarcode(product.barcode);
+    const sameBarcode = (value) => productBarcode && normalizeBarcode(value) === productBarcode;
+    const existingSubmission = reviewSubmissions.find((item) => item.product?.id === product.id || sameBarcode(item.product?.barcode));
+    const existingProduct = existingSubmission?.product || submittedProducts.find((item) => item.id === product.id || sameBarcode(item.barcode)) || {};
+    const mergedPhotos = { ...(existingSubmission?.photos || existingProduct.submittedPhotos || {}), ...(photos || {}) };
+    product.name = isPendingPlaceholderText(product.name) && !isPendingPlaceholderText(existingProduct.name) ? existingProduct.name : product.name;
+    product.brand = isPendingPlaceholderText(product.brand, "brand") && !isPendingPlaceholderText(existingProduct.brand, "brand") ? existingProduct.brand : product.brand;
+    product.imageUrl = product.imageUrl || existingProduct.imageUrl || mergedPhotos.front?.dataUrl || "";
+    product.submittedPhotos = mergedPhotos;
+    const submission = { id: product.id, product, parts, photos: mergedPhotos };
+    const samePendingProduct = (item) => item?.id === product.id || sameBarcode(item?.product?.barcode || item?.barcode);
+    setReviewSubmissions((current) => current.some(samePendingProduct) ? current.map((item) => samePendingProduct(item) ? submission : item) : [submission, ...current]);
+    setSubmittedProducts((current) => current.some(samePendingProduct) ? current.map((item) => samePendingProduct(item) ? product : item) : [product, ...current]);
     setSubmittedParts((current) => [...current.filter((part) => part.productId !== product.id), ...parts]);
     recordScan(product.id);
     saveBackendSubmission(submission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
-      writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => item.id !== product.id)]);
+      writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => !samePendingProduct(item))]);
     });
     const hydrated = hydrateProduct(product, parts);
     productScrollTopRef.current = 0;
