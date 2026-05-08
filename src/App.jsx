@@ -989,8 +989,8 @@ function ProductImage({ src, alt, className, onMissing }) {
   );
 }
 
-function triggerHapticFeedback() {
-  if (typeof window !== "undefined" && window.navigator?.vibrate) window.navigator.vibrate(8);
+function triggerHapticFeedback(pattern = 8) {
+  if (typeof window !== "undefined" && window.navigator?.vibrate) window.navigator.vibrate(pattern);
 }
 
 function FastTapButton({ children, onActivate, className = "", ...props }) {
@@ -1386,8 +1386,8 @@ function ScanScreen({ products, openResult, openAddProduct }) {
       hints.set(DecodeHintType.POSSIBLE_FORMATS, RETAIL_BARCODE_FORMATS);
       hints.set(DecodeHintType.TRY_HARDER, true);
       barcodeReaderRef.current = new BrowserMultiFormatReader(hints, {
-        delayBetweenScanAttempts: 45,
-        delayBetweenScanSuccess: 90,
+        delayBetweenScanAttempts: 20,
+        delayBetweenScanSuccess: 60,
         tryPlayVideoTimeout: 1200,
       });
     }
@@ -1412,11 +1412,11 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setMatchedProduct(null);
     setOpenFoodFactsProduct(null);
     setScanStatus(`Barcode found: ${code}`);
-    triggerHapticFeedback();
     const localProduct = findProductByBarcode(products, code);
     if (localProduct) {
       setMatchedProduct(localProduct);
-      setScanStatus("Matched in your product database.");
+      setScanStatus(localProduct.scorePending ? "Pending product found. Add packaging evidence if you can." : "Matched in your product database.");
+      triggerHapticFeedback(localProduct.scorePending ? [16, 42, 16] : [18, 36, 18]);
       stopBarcodeScanner();
       return;
     }
@@ -1426,11 +1426,14 @@ function ScanScreen({ products, openResult, openAddProduct }) {
       if (externalProduct) {
         setOpenFoodFactsProduct(externalProduct);
         setScanStatus("Found product info. Add photos to verify packaging.");
+        triggerHapticFeedback([18, 36, 18]);
       } else {
         setScanStatus("Barcode not found! Add this product to our database so a rating score can be determined.");
+        triggerHapticFeedback([28, 50, 28]);
       }
     } catch {
       setScanStatus("Could not reach Open Food Facts. Add product manually.");
+      triggerHapticFeedback([28, 50, 28]);
     }
     stopBarcodeScanner();
   };
@@ -1444,10 +1447,6 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     const nextCount = isSameCandidate ? pending.count + 1 : 1;
     pendingBarcodeRef.current = { code, count: nextCount, seenAt: now };
     setScannedBarcode(code);
-    if (nextCount < 2) {
-      setScanStatus(`Barcode detected: ${code}. Hold steady...`);
-      return;
-    }
     resolveBarcode(code);
   };
 
@@ -1464,7 +1463,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     setIsScanning(true);
     try {
       const reader = getBarcodeReader();
-      scannerControlsRef.current = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }, videoRef.current, (result) => {
+      scannerControlsRef.current = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: { ideal: "continuous" } }, audio: false }, videoRef.current, (result) => {
         if (result) handleBarcodeCandidate(result.getText());
       });
       cameraStreamRef.current = videoRef.current?.srcObject || null;
@@ -1527,7 +1526,7 @@ function ScanScreen({ products, openResult, openAddProduct }) {
     window.setTimeout(() => startBarcodeScanner(), 80);
   };
 
-  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><video ref={backgroundVideoRef} className={`absolute inset-0 h-full w-full scale-105 object-cover blur-md transition-opacity duration-300 ${isScanning ? "opacity-100" : "opacity-60"}`} muted playsInline autoPlay /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08)_0%,rgba(24,24,27,0.17)_56%,rgba(9,9,11,0.29)_100%)]" /><div className="absolute inset-0 bg-neutral-950/5" /><div className="relative z-10 flex items-center justify-between px-10 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/15 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 flex flex-1 flex-col items-center justify-start px-6 pt-9 text-center"><div className="w-full"><div className="relative mx-auto h-64 w-64 overflow-hidden rounded-[2.25rem] border border-white/80 bg-neutral-950 shadow-[0_26px_70px_rgba(0,0,0,0.42)]"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay /><span className="absolute left-8 top-8 h-8 w-8 rounded-tl-lg border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-8 w-8 rounded-tr-lg border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-8 w-8 rounded-bl-lg border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-8 w-8 rounded-br-lg border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center">{isBarcodeNotFound ? <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/50 bg-white/12 text-6xl font-semibold text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md">!</div> : <BarcodeScanIcon size={108} active={false} />}</div>}</div><p className="mx-auto mt-5 max-w-[310px] min-h-[48px] text-sm leading-6 text-white/75">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/55">Barcode {scannedBarcode}</p>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}{isBarcodeNotFound && <div className="mx-auto mt-4 grid max-w-[330px] grid-cols-2 gap-2"><Button onClick={startBarcodeScanner} variant="light">Scan again</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="light" className="border border-white/20 bg-white/15 text-white hover:bg-white/20">Add product</Button></div>}</div></div><AnimatePresence>{matchedProduct && <motion.div key="scan-result-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="absolute inset-0 z-30 flex items-end bg-neutral-950/30 backdrop-blur-md" onClick={dismissMatchedProduct}><motion.div key="scan-result-sheet" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.22 }} onDragEnd={(_, info) => { if (info.offset.y > 70 || info.velocity.y > 500) dismissMatchedProduct(); }} transition={{ type: "spring", stiffness: 360, damping: 34, mass: 0.9 }} className="w-full rounded-t-[2rem] bg-white p-4 text-left text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.35)]" onClick={(event) => event.stopPropagation()}><div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-200" /><div className="mb-3 flex items-center justify-between gap-3"><div className="min-w-0"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Product found</div><div className="truncate text-lg font-semibold tracking-tight text-neutral-950">{matchedProduct.name}</div></div><BackButton onClick={dismissMatchedProduct} variant="outline" /></div><div className="rounded-3xl bg-[#f7f3eb] p-3"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /></div><Button onClick={() => openAddProduct({ ...createMissingProductDraft(matchedProduct), packagingEvidence: true, source: "Packaging evidence update" })} variant="solid" className="mt-3 w-full">Add packaging evidence</Button></motion.div></motion.div>}</AnimatePresence></div>;
+  return <div className="relative flex min-h-[690px] flex-col overflow-hidden bg-neutral-950 text-white"><video ref={backgroundVideoRef} className={`absolute inset-0 h-full w-full scale-105 object-cover blur-md transition-opacity duration-300 ${isScanning ? "opacity-100" : "opacity-60"}`} muted playsInline autoPlay /><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08)_0%,rgba(24,24,27,0.17)_56%,rgba(9,9,11,0.29)_100%)]" /><div className="absolute inset-0 bg-neutral-950/5" /><div className="relative z-10 flex items-center justify-between px-8 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em]">{scanCopy.title}</h1><button type="button" onClick={toggleFlashlight} className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/20 shadow-sm backdrop-blur-xl transition ${flashOn ? "bg-white text-neutral-950" : "bg-white/15 text-white"}`} aria-label="Toggle flashlight"><FlashlightIcon size={23} /></button></div><div className="relative z-10 flex flex-1 flex-col items-center justify-start px-4 pt-7 text-center"><div className="w-full"><div className="relative mx-auto h-[min(78vw,21.5rem)] w-[min(78vw,21.5rem)] overflow-hidden rounded-[2.4rem] border border-white/80 bg-neutral-950 shadow-[0_26px_70px_rgba(0,0,0,0.42)]"><video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${isScanning ? "opacity-100" : "opacity-20"}`} muted playsInline autoPlay />{isScanning && <><motion.div className="pointer-events-none absolute left-1/2 top-1/2 h-[150%] w-14 origin-bottom rounded-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.1),rgba(158,219,169,0.72),rgba(255,255,255,0.12),transparent)] blur-[1px]" style={{ transformOrigin: "50% 100%" }} initial={{ rotate: -42, x: "-50%", y: "-100%" }} animate={{ rotate: [-42, 42, -42] }} transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut" }} /><motion.div className="pointer-events-none absolute inset-x-8 top-1/2 h-px bg-white/70 shadow-[0_0_18px_rgba(158,219,169,0.95)]" initial={{ y: -108, opacity: 0.2 }} animate={{ y: [ -108, 108, -108 ], opacity: [0.25, 0.9, 0.25] }} transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut" }} /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_42%,rgba(158,219,169,0.12)_72%,transparent_100%)]" /></> }<span className="absolute left-8 top-8 h-9 w-9 rounded-tl-xl border-l-[5px] border-t-[5px] border-white" /><span className="absolute right-8 top-8 h-9 w-9 rounded-tr-xl border-r-[5px] border-t-[5px] border-white" /><span className="absolute bottom-8 left-8 h-9 w-9 rounded-bl-xl border-b-[5px] border-l-[5px] border-white" /><span className="absolute bottom-8 right-8 h-9 w-9 rounded-br-xl border-b-[5px] border-r-[5px] border-white" />{!isScanning && <div className="absolute inset-0 flex items-center justify-center">{isBarcodeNotFound ? <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/50 bg-white/12 text-6xl font-semibold text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md">!</div> : <BarcodeScanIcon size={118} active={false} />}</div>}</div><p className="mx-auto mt-5 max-w-[330px] min-h-[48px] text-sm leading-6 text-white/75">{scanStatus}</p>{scannedBarcode && <p className="mt-2 text-xs font-medium text-white/55">Barcode {scannedBarcode}</p>}{openFoodFactsProduct && <div className="mx-auto mt-4 max-w-[330px] rounded-3xl bg-white p-4 text-left text-neutral-950"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Open Food Facts match</div><div className="mt-1 font-semibold">{openFoodFactsProduct.name}</div><div className="text-sm text-neutral-500">{openFoodFactsProduct.brand || "Brand unknown"}</div><Button onClick={() => openAddProduct(createMissingProductDraft(openFoodFactsProduct))} className="mt-3 w-full">Add photos & verify packaging</Button></div>}{isBarcodeNotFound && <div className="mx-auto mt-4 grid max-w-[330px] grid-cols-2 gap-2"><Button onClick={startBarcodeScanner} variant="light">Scan again</Button><Button onClick={() => openAddProduct(createMissingProductDraft(null))} variant="light" className="border border-white/20 bg-white/15 text-white hover:bg-white/20">Add product</Button></div>}</div></div><AnimatePresence>{matchedProduct && <motion.div key="scan-result-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }} className="absolute inset-0 z-30 flex items-end bg-neutral-950/30 backdrop-blur-md" onClick={dismissMatchedProduct}><motion.div key="scan-result-sheet" initial={{ y: "104%" }} animate={{ y: 0 }} exit={{ y: "104%", transition: { duration: 0.34, ease: [0.32, 0.72, 0, 1] } }} drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.18 }} onDragEnd={(_, info) => { if (info.offset.y > 82 || info.velocity.y > 620) dismissMatchedProduct(); }} transition={{ type: "spring", stiffness: 260, damping: 32, mass: 1.04 }} className="w-full rounded-t-[2rem] bg-white p-4 text-left text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.35)]" onClick={(event) => event.stopPropagation()}><div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-200" /><div className="mb-3 flex items-center justify-between gap-3"><div className="min-w-0"><div className="text-xs font-medium uppercase tracking-wide text-neutral-400">{matchedProduct.scorePending ? "Pending product found" : "Product found"}</div><div className="truncate text-lg font-semibold tracking-tight text-neutral-950">{matchedProduct.name}</div></div><BackButton onClick={dismissMatchedProduct} variant="outline" /></div><div className="rounded-3xl bg-[#f7f3eb] p-3"><ProductRow product={matchedProduct} onClick={() => openResult(matchedProduct)} /></div><Button onClick={() => openAddProduct({ ...createMissingProductDraft(matchedProduct), packagingEvidence: true, source: "Packaging evidence update" })} variant="solid" className="mt-3 w-full">Add packaging evidence</Button></motion.div></motion.div>}</AnimatePresence></div>;
 }
 
 function SourceCard({ link }) {
