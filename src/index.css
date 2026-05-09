@@ -11,6 +11,26 @@ body {
   overscroll-behavior: none;
 }
 
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .phone-shell {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    height: 100dvw !important;
+    width: 100dvh !important;
+    max-width: none !important;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    transform-origin: center;
+  }
+}
+
 button,
 [role="button"],
 a,

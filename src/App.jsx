@@ -933,10 +933,11 @@ function Phone({ children }) {
     ensureMeta("viewport", "width=device-width, initial-scale=1, viewport-fit=cover");
     ensureMeta("apple-mobile-web-app-capable", "yes");
     ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
+    window.screen?.orientation?.lock?.("portrait-primary").catch?.(() => {});
   }, []);
 
   return (
-    <div className="relative mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-0 pb-0 md:h-[min(760px,calc(100dvh-4rem))] md:w-[430px] md:rounded-[2.35rem] md:border md:border-white/70 md:shadow-[0_32px_90px_rgba(0,0,0,0.22)] md:ring-1 md:ring-black/5">
+    <div className="phone-shell relative mx-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f8f5ef] pt-0 pb-0 md:h-[min(760px,calc(100dvh-4rem))] md:w-[430px] md:rounded-[2.35rem] md:border md:border-white/70 md:shadow-[0_32px_90px_rgba(0,0,0,0.22)] md:ring-1 md:ring-black/5">
       {children}
     </div>
   );

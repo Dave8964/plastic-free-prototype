@@ -1,0 +1,10 @@
+{
+  "name": "PlasticFree",
+  "short_name": "PlasticFree",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/",
+  "scope": "/",
+  "background_color": "#f8f5ef",
+  "theme_color": "#f8f5ef"
+}
