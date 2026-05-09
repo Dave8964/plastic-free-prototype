@@ -918,7 +918,7 @@ function ToggleSwitch({ checked, onClick, label }) {
 }
 
 const Card = ({ children, className = "" }) => <div className={`rounded-[28px] border border-white/70 bg-white/82 shadow-[0_8px_28px_rgba(0,0,0,0.06)] backdrop-blur-xl ${className}`}>{children}</div>;
-const Header = ({ title, right }) => <div className="flex items-center justify-between px-5 pb-4 pt-7"><h1 className="text-[28px] font-semibold tracking-[-0.04em] text-neutral-950">{title}</h1>{right || <span />}</div>;
+const Header = ({ title, right }) => <div className="flex items-center justify-between px-5 pb-4 pt-7"><h1 className="text-[28px] font-semibold leading-[1.03] tracking-[-0.04em] text-neutral-950">{title}</h1>{right || <span />}</div>;
 function Phone({ children }) {
   useEffect(() => {
     const ensureMeta = (name, content) => {
