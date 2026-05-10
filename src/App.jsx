@@ -3150,6 +3150,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const shouldRestoreProductScrollRef = useRef(false);
   const searchScrollTopRef = useRef(0);
   const shouldRestoreSearchScrollRef = useRef(false);
+  const socialScrollTopRef = useRef(0);
+  const shouldRestoreSocialScrollRef = useRef(false);
   const profileScrollTopRef = useRef(0);
   const shouldRestoreProfileScrollRef = useRef(false);
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
@@ -3248,6 +3250,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (tab === "search" && !showResult && !detail) {
       searchScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
       shouldRestoreSearchScrollRef.current = true;
+    }
+    if (tab === "social" && !showResult && !detail && !viewUser) {
+      socialScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+      shouldRestoreSocialScrollRef.current = true;
     }
     productScrollTopRef.current = 0;
     shouldRestoreProductScrollRef.current = false;
@@ -3528,6 +3534,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
     openResult(product);
   };
 
+  const openSocialUserProfile = (user) => {
+    socialScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+    shouldRestoreSocialScrollRef.current = true;
+    setViewUser(user);
+  };
+
   const handleProductScanned = (product) => {
     if (!product?.id) return;
     incrementBadge("plastic_detective", 1);
@@ -3622,6 +3634,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
       shouldRestoreSearchScrollRef.current = false;
       return;
     }
+    if (screen === "social" && shouldRestoreSocialScrollRef.current) {
+      contentScrollRef.current?.scrollTo({ top: socialScrollTopRef.current, left: 0, behavior: "auto" });
+      shouldRestoreSocialScrollRef.current = false;
+      return;
+    }
     if (screen === "profile" && shouldRestoreProfileScrollRef.current) {
       contentScrollRef.current?.scrollTo({ top: profileScrollTopRef.current, left: 0, behavior: "auto" });
       shouldRestoreProfileScrollRef.current = false;
@@ -3697,11 +3714,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
     <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
   </motion.div>
 ) : (
-  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : tab === "profile" ? "profile" : "top", definition)}>
+  <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "search" ? "search" : tab === "social" ? "social" : tab === "profile" ? "profile" : "top", definition)}>
     {tab === "scan" && <ScanScreen products={products} openResult={handleScan} openAddProduct={openAddProduct} onProductScanned={handleProductScanned} />}
     {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
     {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => setHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => setHistoryList({ title: "Products searched", products: searchedProducts })} />}
-    {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={(user) => setViewUser(user)} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
+    {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={openSocialUserProfile} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
     {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={() => setShowFavorites(true)} openBadges={() => setShowBadges(true)} openBadge={(badge) => setBadgeDetail(badge)} openPlans={openPlansFromProfile} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} updateProfile={updateProfile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
   </motion.div>
 )}
