@@ -3574,6 +3574,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     homeScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreHomeScrollRef.current = true;
     setReturnHistoryList(null);
+    setContentScrollTop(0);
     setHistoryList(list);
   };
 
