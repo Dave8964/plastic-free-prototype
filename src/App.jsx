@@ -3138,6 +3138,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showPlans, setShowPlans] = useState(false);
   const [showAdminReview, setShowAdminReview] = useState(false);
   const [viewUser, setViewUser] = useState(null);
+  const [contentScrollTop, setContentScrollTop] = useState(0);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [addProductAsSheet, setAddProductAsSheet] = useState(false);
   const [addProductDraft, setAddProductDraft] = useState({});
@@ -3690,8 +3691,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
     scrollIncomingScreen(screen);
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(canSwipeBack));
+  const showSearchTopButton = tab === "search" && !hideNav && contentScrollTop > 220;
+  const scrollSearchToTop = () => {
+    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  };
 
-  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} onScroll={(event) => setContentScrollTop(event.currentTarget.scrollTop)} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
@@ -3763,6 +3768,9 @@ export default function PlasticFreeScannerDatabasePrototype() {
 )}
 </AnimatePresence>
 </div>
+<AnimatePresence>
+{showSearchTopButton && <motion.button type="button" onClick={scrollSearchToTop} initial={{ opacity: 0, y: 10, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.94 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className="absolute bottom-[7.25rem] right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] ring-1 ring-white/20 backdrop-blur-xl active:scale-[0.96]" aria-label="Back to top">↑</motion.button>}
+</AnimatePresence>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
 {canSwipeBack && !showResult && !detail && !plasticListDetail && !showAddProduct && <div className="absolute left-0 top-0 z-50 h-full w-14 touch-none" aria-hidden="true" {...appSwipeBackHandlers} />}
