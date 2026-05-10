@@ -3129,6 +3129,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [shareProduct, setShareProduct] = useState(null);
   const [historyList, setHistoryList] = useState(null);
+  const [returnHistoryList, setReturnHistoryList] = useState(null);
   const [peopleList, setPeopleList] = useState(null);
   const [isSignedOut, setIsSignedOut] = useState(false);
   const [showBadges, setShowBadges] = useState(false);
@@ -3157,6 +3158,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const shouldRestoreSocialScrollRef = useRef(false);
   const profileScrollTopRef = useRef(0);
   const shouldRestoreProfileScrollRef = useRef(false);
+  const listScrollTopRef = useRef(0);
+  const shouldRestoreListScrollRef = useRef(false);
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
@@ -3246,10 +3249,22 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setAddProductAsSheet(false);
     setShareProduct(null);
     setHistoryList(null);
+    setReturnHistoryList(null);
     setPeopleList(null);
   };
 
   const openResult = (product) => {
+    if (historyList && !showResult && !detail) {
+      listScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+      shouldRestoreListScrollRef.current = true;
+      setReturnHistoryList(historyList);
+      setHistoryList(null);
+      productScrollTopRef.current = 0;
+      shouldRestoreProductScrollRef.current = false;
+      setResult(product);
+      setShowResult(true);
+      return;
+    }
     if (tab === "history" && !showResult && !detail && !historyList && !viewUser) {
       homeScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
       shouldRestoreHomeScrollRef.current = true;
@@ -3558,7 +3573,16 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const openHomeHistoryList = (list) => {
     homeScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreHomeScrollRef.current = true;
+    setReturnHistoryList(null);
     setHistoryList(list);
+  };
+
+  const closeResult = () => {
+    setShowResult(false);
+    if (returnHistoryList) {
+      setHistoryList(returnHistoryList);
+      setReturnHistoryList(null);
+    }
   };
 
   const closePlans = () => {
@@ -3651,7 +3675,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
       closePlasticListEvidence();
       return;
     }
-    if (showResult) setShowResult(false);
+    if (showResult) closeResult();
   };
   const pageTransition = { duration: 0.44, ease: [0.2, 0.82, 0.2, 1] };
   const proPageTransition = { duration: 0.52, ease: [0.2, 0.82, 0.2, 1] };
@@ -3674,6 +3698,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
       shouldRestoreSearchScrollRef.current = false;
       return;
     }
+    if (screen === "history-list" && shouldRestoreListScrollRef.current) {
+      contentScrollRef.current?.scrollTo({ top: listScrollTopRef.current, left: 0, behavior: "auto" });
+      shouldRestoreListScrollRef.current = false;
+      return;
+    }
     if (screen === "social" && shouldRestoreSocialScrollRef.current) {
       contentScrollRef.current?.scrollTo({ top: socialScrollTopRef.current, left: 0, behavior: "auto" });
       shouldRestoreSocialScrollRef.current = false;
@@ -3691,8 +3720,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
     scrollIncomingScreen(screen);
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(canSwipeBack));
-  const showSearchTopButton = tab === "search" && !hideNav && contentScrollTop > 220;
-  const scrollSearchToTop = () => {
+  const showBackToTopButton = ((tab === "search" && !hideNav) || Boolean(historyList)) && contentScrollTop > 220;
+  const scrollCurrentPageToTop = () => {
     contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   };
 
@@ -3718,7 +3747,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     <ShareSheet product={shareProduct} close={() => setShareProduct(null)} onShareSuccess={showShareBadgeToast} />
   </motion.div>
 ) : historyList ? (
-  <motion.div key="history-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
+  <motion.div key="history-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("history-list", definition)}>
     <ProductListScreen title={historyList.title} products={historyList.products} openResult={openResult} close={() => setHistoryList(null)} />
   </motion.div>
 ) : peopleList ? (
@@ -3755,7 +3784,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showResult ? (
   <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
-    <ResultScreen product={result} close={() => setShowResult(false)} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
+    <ResultScreen product={result} close={closeResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "history" ? "history" : tab === "search" ? "search" : tab === "social" ? "social" : tab === "profile" ? "profile" : "top", definition)}>
@@ -3769,7 +3798,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 </AnimatePresence>
 </div>
 <AnimatePresence>
-{showSearchTopButton && <motion.button type="button" onClick={scrollSearchToTop} initial={{ opacity: 0, y: 10, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.94 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className="absolute bottom-[7.25rem] right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] ring-1 ring-white/20 backdrop-blur-xl active:scale-[0.96]" aria-label="Back to top">↑</motion.button>}
+{showBackToTopButton && <motion.button type="button" onClick={scrollCurrentPageToTop} initial={{ opacity: 0, y: 10, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.94 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className={`absolute right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] ring-1 ring-white/20 backdrop-blur-xl active:scale-[0.96] ${historyList ? "bottom-5" : "bottom-[7.25rem]"}`} aria-label="Back to top">↑</motion.button>}
 </AnimatePresence>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
