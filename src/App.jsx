@@ -328,8 +328,9 @@ const packagingTemplates = [
   {
     id: "cereal_box_bag",
     categoryIds: ["cat_food_drink"],
-    keywords: ["cereal", "cheerios", "granola"],
+    keywords: ["cereal", "cheerios", "cherios", "honey nut", "rice krispies", "rice crispies", "rice crispees", "shreddies", "granola", "corn flakes", "frosted flakes", "raisin bran", "oatmeal squares"],
     score: 42,
+    scoreRange: [35, 50],
     confidence: "estimated",
     explanation: "Based on common cereal packaging: a paperboard box with a plastic inner bag.",
     components: [
@@ -342,6 +343,7 @@ const packagingTemplates = [
     categoryIds: ["cat_food_drink"],
     keywords: ["chips", "crisps", "tortilla chips", "potato chips"],
     score: 28,
+    scoreRange: [20, 35],
     confidence: "estimated",
     explanation: "Based on common chip packaging: a flexible multilayer plastic bag.",
     components: [
@@ -353,6 +355,7 @@ const packagingTemplates = [
     categoryIds: ["cat_food_drink"],
     keywords: ["canned soup", "soup", "broth", "stew"],
     score: 15,
+    scoreRange: [10, 20],
     confidence: "estimated",
     explanation: "Based on common canned soup packaging: metal can with an internal liner and hot-fill liquid food contact.",
     components: [
@@ -365,6 +368,7 @@ const packagingTemplates = [
     categoryIds: ["cat_food_drink"],
     keywords: ["tuna", "sardine", "salmon can"],
     score: 19,
+    scoreRange: [15, 25],
     confidence: "estimated",
     explanation: "Based on common canned tuna packaging: metal can with an unknown liner, fatty food contact, and long storage.",
     components: [
@@ -377,6 +381,7 @@ const packagingTemplates = [
     categoryIds: ["cat_food_drink"],
     keywords: ["bottled water", "spring water", "distilled water", "water bottle"],
     score: 18,
+    scoreRange: [10, 25],
     confidence: "estimated",
     explanation: "Based on common bottled water packaging: PET bottle with a plastic cap.",
     components: [
@@ -389,6 +394,7 @@ const packagingTemplates = [
     categoryIds: ["cat_personal"],
     keywords: ["bar soap", "paper wrapped soap", "paper-wrapped"],
     score: 96,
+    scoreRange: [95, 98],
     confidence: "estimated",
     explanation: "Based on common paper-wrapped bar soap packaging with no plastic packaging identified.",
     components: [
@@ -400,6 +406,7 @@ const packagingTemplates = [
     categoryIds: ["cat_plastic_free"],
     keywords: ["zero packaging", "package free", "unpackaged", "bulk refill"],
     score: 100,
+    scoreRange: [100, 100],
     confidence: "estimated",
     explanation: "Based on a zero-packaging signal.",
     components: [],
@@ -409,6 +416,7 @@ const packagingTemplates = [
     categoryIds: ["cat_cleaning"],
     keywords: ["dishwasher pod", "dishwasher pods", "dishwasher detergent", "detergent pod", "pva"],
     score: 15,
+    scoreRange: [10, 20],
     confidence: "estimated",
     explanation: "Based on common dishwasher pods: container or box plus PVA/PVOH dissolvable film.",
     components: [
@@ -421,6 +429,7 @@ const packagingTemplates = [
     categoryIds: ["cat_personal"],
     keywords: ["deodorant", "antiperspirant"],
     score: 32,
+    scoreRange: [25, 40],
     confidence: "estimated",
     explanation: "Based on common deodorant packaging: plastic applicator and cap.",
     components: [
@@ -433,11 +442,37 @@ const packagingTemplates = [
     categoryIds: ["cat_food_drink"],
     keywords: ["yogurt", "milk", "cheese", "cream", "dairy"],
     score: 30,
+    scoreRange: [15, 40],
     confidence: "estimated",
     explanation: "Based on common dairy packaging: plastic tub/carton layer or plastic cap with fatty food contact.",
     components: [
       { partType: "main_container", displayName: "Dairy container", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -14, materialImpact: -12, contextIds: ["food_contact", "fatty"], notes: "Likely plastic tub, coated carton, or layered dairy packaging." },
       { partType: "cap_lid", displayName: "Lid or cap", materialId: "plastic", plasticTypeId: "unknown_plastic", baseImpact: -6, materialImpact: -8, notes: "Likely plastic lid, film, or cap." },
+    ],
+  },
+  {
+    id: "boxed_dry_food",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["cracker", "cookies", "biscuit", "pasta", "macaroni", "snack bar", "granola bar"],
+    score: 44,
+    scoreRange: [34, 54],
+    confidence: "estimated",
+    explanation: "Based on common dry grocery packaging: paperboard box or sleeve plus plastic film or inner pouch.",
+    components: [
+      { partType: "outer_packaging", displayName: "Outer box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Likely paperboard/cardboard outer packaging." },
+      { partType: "inner_packaging", displayName: "Inner wrapper", materialId: "plastic", plasticTypeId: "unknown_plastic", baseImpact: -12, materialImpact: -12, contextIds: ["food_contact", "internal"], notes: "Likely plastic film or inner pouch in food contact." },
+    ],
+  },
+  {
+    id: "generic_packaged_food",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["food and drink", "food", "drink"],
+    score: 47,
+    scoreRange: [38, 58],
+    confidence: "estimated",
+    explanation: "Based on a general packaged food signal. Packaging photos are needed to identify exact materials.",
+    components: [
+      { partType: "main_container", displayName: "Package", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -10, materialImpact: -12, contextIds: ["food_contact"], notes: "Likely packaged food with unknown material details until photos are reviewed." },
     ],
   },
 ];
@@ -486,6 +521,52 @@ function createTemplateParts(product, template) {
   }));
 }
 
+function isGenericPendingPart(part = {}) {
+  const text = `${part.displayName || ""} ${part.notes || ""}`.toLowerCase();
+  return part.id?.includes("_packaging") && (text.includes("pending review") || text.includes("unknown")) && part.plasticTypeId === "unknown_plastic";
+}
+
+function stableScoreOffset(product = {}, spread = 4) {
+  const text = `${product.brand || ""} ${product.name || ""} ${product.barcode || ""}`;
+  const hash = Array.from(text).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 997, 7);
+  return (hash % (spread * 2 + 1)) - spread;
+}
+
+function getEstimatedTemplateScore(product = {}, template = null) {
+  if (!template) return null;
+  const [min = template.score, max = template.score] = template.scoreRange || [template.score, template.score];
+  const text = getProductSearchText(product);
+  let score = template.score + stableScoreOffset(product);
+  if (/\bglass\b|paper[-\s]?wrapped|plastic[-\s]?free|cardboard only/.test(text)) score += 6;
+  if (/family size|value size|club size|costco|multipack/.test(text)) score -= 3;
+  if (/chocolate|peanut butter|oil|cream|cheese|whole milk|fat/.test(text)) score -= 4;
+  if (/tomato|citrus|lemon|vinegar|pickle|salsa/.test(text)) score -= 3;
+  if (/hot|microwave|instant|soup|broth|stew/.test(text)) score -= 5;
+  return clampScore(Math.max(min, Math.min(max, score)));
+}
+
+function cleanProductText(value = "") {
+  const raw = String(value || "").trim();
+  const lower = raw.toLowerCase();
+  if (lower.includes("cheerios") && (lower.includes("miel") || lower.includes("noix") || lower.includes("honey nut"))) return "Honey Nut Cheerios";
+  if (/\brice\s+(krispies|crispees|crispies)\b/i.test(raw)) return "Rice Krispies";
+  return raw
+    .replace(/^(c[eé]r[eé]ales|cereal|cereals)\s+/i, "")
+    .replace(/\bCrispees\b/gi, "Krispies")
+    .replace(/\bRice Crispies\b/gi, "Rice Krispies")
+    .replace(/\bCherios\b/gi, "Cheerios")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeProductIdentity(product = {}) {
+  return {
+    ...product,
+    name: cleanProductText(product.name),
+    brand: cleanProductText(product.brand),
+  };
+}
+
 function getScoreTheme(score) {
   const value = clampScore(score);
   if (value >= 92) return { ring: "#00894b", bg: "#e6f8ef", label: "Near-ideal" };
@@ -494,6 +575,8 @@ function getScoreTheme(score) {
   if (value >= 21) return { ring: "#c59622", bg: "#fff4d8", label: "Likely hidden plastic" };
   return { ring: "#9f2d28", bg: "#f8e8e6", label: "Contains plastic" };
 }
+
+const pendingScoreTheme = { ring: "#c7c7cc", bg: "#f7f7f8", label: "Score pending review" };
 
 function isPendingReviewProduct(product = {}) {
   return false;
@@ -905,6 +988,7 @@ function getPartSeverity(totalImpact, part = null) {
 }
 
 function hydrateProduct(product, extraParts = []) {
+  product = normalizeProductIdentity(product);
   const highRiskKeywords = ["canned", "bottle", "gum", "salt", "sponge", "cutting", "tupperware"];
   const acidicKeywords = ["tomato", "vinegar", "citrus", "mustard", "ketchup", "hot sauce", "yogurt", "cheese", "juice"];
   const heatSensitiveRules = [
@@ -923,9 +1007,10 @@ function hydrateProduct(product, extraParts = []) {
   const plasticListEvidence = getPlasticListEvidence(product.id);
   const plasticListPenalty = Math.max(-40, plasticListEvidence.reduce((sum, item) => sum + (item.scoreImpact || 0), 0));
   const explicitParts = [...db.productParts, ...extraParts].filter((part) => part.productId === product.id);
-  const packagingTemplate = explicitParts.length ? null : matchPackagingTemplate(product, category);
+  const onlyGenericPendingParts = explicitParts.length > 0 && explicitParts.every(isGenericPendingPart);
+  const packagingTemplate = !explicitParts.length || onlyGenericPendingParts ? matchPackagingTemplate(product, category) : null;
   const templateParts = packagingTemplate ? createTemplateParts(product, packagingTemplate) : [];
-  const rawParts = explicitParts.length ? explicitParts : templateParts;
+  const rawParts = packagingTemplate && (!explicitParts.length || onlyGenericPendingParts) ? templateParts : explicitParts;
   const parts = rawParts.map((part) => {
     const material = getById("materials", part.materialId);
     const plastic = getById("plasticTypes", part.plasticTypeId);
@@ -984,7 +1069,8 @@ function hydrateProduct(product, extraParts = []) {
     chickfila_deluxe: 18
   };
   const scorePending = isPendingReviewProduct(product);
-  const score = product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? packagingTemplate?.score ?? rawScore;
+  const templateScore = getEstimatedTemplateScore(product, packagingTemplate);
+  const score = product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? templateScore ?? rawScore;
   const healthRiskPenalty = Math.abs(normalizedContextPressure) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 7;
   const plasticExposurePenalty = Math.abs(normalizedPartPenalty) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 10;
   const recyclabilityStatus = combineRecyclability(parts.map((part) => part.recyclability));
@@ -1385,19 +1471,21 @@ function findProductByBarcode(products, barcode) {
 async function fetchOpenFoodFactsProduct(barcode) {
   const codes = getBarcodeLookupCodes(barcode);
   for (const code of codes) {
-    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,image_front_url,quantity,categories_tags`);
+    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_en,generic_name_en,brands,brands_tags,image_front_url,quantity,categories,categories_tags`);
     if (response.status === 404) continue;
     if (!response.ok) throw new Error("Open Food Facts lookup failed.");
     const data = await response.json();
     if (data.status !== 1 || !data.product) continue;
     const product = data.product;
+    const brandFromTag = product.brands_tags?.[0]?.split("-").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
     return {
       barcode: normalizeBarcode(code),
-      name: product.product_name || "Unknown product",
-      brand: product.brands?.split(",")[0]?.trim() || "",
+      name: cleanProductText(product.product_name_en || product.product_name || product.generic_name_en || "Unknown product"),
+      brand: cleanProductText(product.brands?.split(",")[0]?.trim() || brandFromTag || ""),
       imageUrl: product.image_front_url || "",
       quantity: product.quantity || "",
       categories_tags: product.categories_tags || [],
+      category: product.categories || "",
       source: "Open Food Facts",
     };
   }
@@ -1515,8 +1603,8 @@ function getCategoryIdFromLabel(label) {
 function createPendingProductFromDraft(draft = {}, photos = {}) {
   const idSeed = normalizeBarcode(draft.barcode) || `${Date.now()}`;
   const id = `pending_${idSeed}`;
-  const submittedName = `${draft.name || draft.productName || ""}`.trim();
-  const submittedBrand = `${draft.brand || draft.brandName || ""}`.trim();
+  const submittedName = cleanProductText(`${draft.name || draft.productName || ""}`);
+  const submittedBrand = cleanProductText(`${draft.brand || draft.brandName || ""}`);
   const product = {
     id,
     name: submittedName || "Pending product",
@@ -1527,6 +1615,10 @@ function createPendingProductFromDraft(draft = {}, photos = {}) {
     confidence: "Low",
     verification: "unverified",
     barcode: normalizeBarcode(draft.barcode),
+    quantity: draft.quantity || "",
+    categories_tags: draft.categories_tags || draft.categoriesTags || [],
+    category: draft.category || "",
+    source: draft.source || "Barcode scan",
     scorePending: false,
     scoreStatus: "pending_review",
     scoringNote: "Estimated score. Packaging photos and material evidence can verify the rating.",
@@ -1630,6 +1722,8 @@ function ScanScreen({ products, openResult, openAddProduct, onProductScanned }) 
     imageUrl: source?.imageUrl || "",
     submittedPhotos: source?.submittedPhotos || source?.photos || {},
     categoryId: source?.categoryId,
+    categories_tags: source?.categories_tags || source?.categoriesTags || [],
+    category: source?.category || "",
     quantity: source?.quantity || "",
     source: source?.source || "Barcode scan",
   });
@@ -2912,6 +3006,8 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
   const bobaPearls = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls");
   const bobaFruity = products.find((product) => product.id === "plasticlist_boba_guys_fruity_flavored_tea");
   const cheerios = hydrateProduct({ id: "test_cheerios", name: "Cheerios Cereal", brand: "General Mills", categoryId: "cat_food_drink" });
+  const manualHoneyNut = hydrateProduct({ id: "pending_test_honey_nut", name: "Honey Nut Cherios", brand: "General Mills", categoryId: "cat_food_drink", scoreStatus: "pending_review" }, [{ id: "pending_test_honey_nut_packaging", productId: "pending_test_honey_nut", partType: "main_container", displayName: "Packaging pending review", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -10, materialImpact: -12, notes: "Packaging pending review." }]);
+  const manualRiceKrispies = hydrateProduct({ id: "pending_test_rice", name: "Rice Crispees", brand: "Kellogg's", categoryId: "cat_food_drink", scoreStatus: "pending_review" }, [{ id: "pending_test_rice_packaging", productId: "pending_test_rice", partType: "main_container", displayName: "Packaging pending review", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -10, materialImpact: -12, notes: "Packaging pending review." }]);
   const estimatedSoup = hydrateProduct({ id: "test_canned_soup", name: "Organic Canned Soup", brand: "Test", categoryId: "cat_food_drink" });
   const unknownProduct = hydrateProduct({ id: "test_unknown", name: "Mystery Item", brand: "Unknown" });
   const tests = [
@@ -2956,6 +3052,8 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [products.find(p => p.id === "paper_soap")?.score === 96, "paper-wrapped soap should use near-ideal calibrated score"],
     [products.find(p => p.id === "paper_soap")?.category?.name === "Personal care", "paper-wrapped soap should live under Personal care"],
     [cheerios.parts.some((part) => part.displayName === "Outer box" && part.materialId === "paper") && cheerios.parts.some((part) => part.displayName === "Inner bag" && part.plasticTypeId === "ldpe4"), "Cheerios/cereal should get cardboard box plus plastic inner bag template"],
+    [manualHoneyNut.parts.some((part) => part.displayName === "Outer box") && manualHoneyNut.parts.some((part) => part.displayName === "Inner bag") && manualHoneyNut.score !== 52, "Manual Honey Nut cereal should replace generic pending packaging with cereal template"],
+    [manualRiceKrispies.name.includes("Rice Krispies") && manualRiceKrispies.parts.some((part) => part.displayName === "Outer box"), "Rice Krispies should be spelled correctly and use cereal template"],
     [cheerios.score >= 35 && cheerios.score <= 50 && cheerios.scoreConfidence === "estimated", "Cheerios/cereal should receive an estimated score around 35-50"],
     [cheerios.scoreConfidenceLabel === "Estimated from common packaging", "Estimated products should show confidence label"],
     [estimatedSoup.parts.some((part) => part.partType === "liner") && estimatedSoup.riskFactors.some((factor) => ["Hot food contact", "Heat-sensitive product", "Hot canned liquid"].includes(factor.name)), "Canned soup template should include liner and heat-sensitive risk"],
