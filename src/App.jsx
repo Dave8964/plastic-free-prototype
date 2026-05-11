@@ -3524,6 +3524,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [showAdminReview, setShowAdminReview] = useState(false);
   const [viewUser, setViewUser] = useState(null);
   const [contentScrollTop, setContentScrollTop] = useState(0);
+  const [showBackToTopButton, setShowBackToTopButton] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [addProductAsSheet, setAddProductAsSheet] = useState(false);
   const [addProductDraft, setAddProductDraft] = useState({});
@@ -3544,6 +3545,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const shouldRestoreProfileScrollRef = useRef(false);
   const listScrollTopRef = useRef(0);
   const shouldRestoreListScrollRef = useRef(false);
+  const activeScrollSurfaceRef = useRef("");
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => db.saves.filter((save) => save.userId === "user_me").map((save) => save.productId));
@@ -4107,12 +4109,23 @@ export default function PlasticFreeScannerDatabasePrototype() {
     scrollIncomingScreen(screen);
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(canSwipeBack));
-  const showBackToTopButton = ((tab === "search" && !hideNav) || Boolean(historyList)) && contentScrollTop > 220;
+  const backToTopSurface = historyList ? "history-list" : tab === "search" && !hideNav ? "search" : "";
+  useEffect(() => {
+    activeScrollSurfaceRef.current = backToTopSurface;
+    setShowBackToTopButton(false);
+    setContentScrollTop(contentScrollRef.current?.scrollTop || 0);
+  }, [backToTopSurface]);
+  const handleContentScroll = (event) => {
+    const scrollTop = event.currentTarget.scrollTop;
+    setContentScrollTop(scrollTop);
+    const activeSurface = activeScrollSurfaceRef.current;
+    setShowBackToTopButton(Boolean(activeSurface) && scrollTop > 220);
+  };
   const scrollCurrentPageToTop = () => {
     contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   };
 
-  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} onScroll={(event) => setContentScrollTop(event.currentTarget.scrollTop)} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
+  return <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f2eee6_42%,#dfd8ca_100%)] px-0 py-0 font-sans text-neutral-950 antialiased md:flex md:items-center md:justify-center md:px-4 md:py-8"><AnimatePresence>{badgeToast && <motion.div initial={{ opacity: 0, y: -56, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -36, scale: 0.98 }} transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.85 }} className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto max-w-[360px] rounded-[1.35rem] bg-neutral-950/95 px-4 py-3 text-sm font-medium text-white shadow-2xl shadow-black/20 ring-1 ring-white/10 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><span>{badgeToast}</span><button type="button" onClick={() => setBadgeToast(null)} className="text-white/70">×</button></div></motion.div>}</AnimatePresence><Phone>{isSignedOut ? <SignInScreen onSignIn={() => setIsSignedOut(false)} /> : <div className="relative flex h-full min-h-0 flex-col"><div className="flex min-h-0 flex-1 flex-col"><div ref={contentScrollRef} onScroll={handleContentScroll} className="min-h-0 flex-1 overflow-y-auto"><AnimatePresence mode="wait">
 {viewUser ? (
   <motion.div key="user-profile" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <UserProfileView user={viewUser} products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} close={() => setViewUser(null)} openFavorites={() => setHistoryList({ title: `${viewUser.displayName} ${localeCopy.favoritesLower}`, products: db.saves.filter((save) => save.userId === viewUser.id).map((save) => products.find((product) => product.id === save.productId)).filter(Boolean) })} localeCopy={localeCopy} />
