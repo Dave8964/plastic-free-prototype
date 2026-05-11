@@ -495,10 +495,8 @@ function getScoreTheme(score) {
   return { ring: "#9f2d28", bg: "#f8e8e6", label: "Contains plastic" };
 }
 
-const pendingScoreTheme = { ring: "#c7c7cc", bg: "#f7f7f8", label: "Score pending review" };
-
 function isPendingReviewProduct(product = {}) {
-  return product.scorePending === true || ["pending_review", "needs_more_info", "photo_review"].includes(product.scoreStatus) || product.verification === "unverified" || String(product.id || "").startsWith("pending_");
+  return false;
 }
 
 function isPublishableSubmissionProduct(product = {}) {
@@ -506,7 +504,7 @@ function isPublishableSubmissionProduct(product = {}) {
 }
 
 function getScoreDisplay(product = {}) {
-  return product.scorePending ? "TBD" : product.score;
+  return product.score;
 }
 
 const getScoreBadgeStyle = (theme) => ({
@@ -986,7 +984,7 @@ function hydrateProduct(product, extraParts = []) {
     chickfila_deluxe: 18
   };
   const scorePending = isPendingReviewProduct(product);
-  const score = scorePending ? null : product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? packagingTemplate?.score ?? rawScore;
+  const score = product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? packagingTemplate?.score ?? rawScore;
   const healthRiskPenalty = Math.abs(normalizedContextPressure) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 7;
   const plasticExposurePenalty = Math.abs(normalizedPartPenalty) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 10;
   const recyclabilityStatus = combineRecyclability(parts.map((part) => part.recyclability));
@@ -999,7 +997,7 @@ function hydrateProduct(product, extraParts = []) {
   ];
   const uniqueRiskFactors = Array.from(new Map(riskFactors.map((factor) => [factor.id, factor])).values());
   const alternatives = product.categoryId === "cat_food_drink" ? ["Choose glass-packaged alternatives when possible.", "Look for 100% bisphenol-free or BPA Non-Intent cans.", "Filter tap water instead of buying bottled water."] : product.categoryId === "cat_cleaning" ? ["Choose loose powder or tablet formats without dissolvable film.", "Use cardboard refills or concentrated cleaners in glass.", "Avoid plastic sponges; try natural loofah, cellulose, or dish cloths."] : product.categoryId === "cat_sexual_health" ? ["For STI prevention, prioritize latex or FDA-cleared synthetic condoms over natural membrane options.", "For latex allergies, compare non-latex synthetic options.", "Treat natural skin options as lower-plastic, not as the best health-protection choice."] : product.categoryId === "cat_personal" || product.categoryId === "cat_hygiene" ? ["Look for paper, glass, metal, or refillable packaging.", "Avoid prolonged skin-contact plastics where possible.", "Choose plastic-free applicators or package-free options."] : ["Choose unpackaged, paper, glass, ceramic, stainless steel, cast iron, wood, or bamboo alternatives.", "Avoid hot food in plastic or plastic-lined containers.", "Have receipts emailed instead of taking thermal paper receipts."];
-  const theme = scorePending ? pendingScoreTheme : getScoreTheme(score);
+  const theme = getScoreTheme(score);
   const hasCanLiner = parts.some((part) => part.partType === "liner" && (part.material?.linerRisk || part.materialId === "mixed" || part.plastic?.code === "UNKNOWN"));
   const hotCannedFoodTerms = ["soup", "broth", "stew", "chili", "sauce", "gravy"];
   const hasHotCannedFoodSignal = hotCannedFoodTerms.some((term) => name.includes(term)) || uniqueRiskFactors.some((factor) => ["hot_food", "heat_soup"].includes(factor.id));
@@ -1529,9 +1527,9 @@ function createPendingProductFromDraft(draft = {}, photos = {}) {
     confidence: "Low",
     verification: "unverified",
     barcode: normalizeBarcode(draft.barcode),
-    scorePending: true,
+    scorePending: false,
     scoreStatus: "pending_review",
-    scoringNote: "Score pending review. Packaging photos and material evidence need to be checked before a rating is assigned.",
+    scoringNote: "Estimated score. Packaging photos and material evidence can verify the rating.",
     submittedPhotos: photos,
   };
   const parts = [
@@ -2143,15 +2141,25 @@ function hasProductPhoto(product = {}) {
 }
 
 function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
-  const [photo, setPhoto] = useState(null);
   const [photos, setPhotos] = useState({});
+  const [activeTarget, setActiveTarget] = useState("front");
+  const [pendingCapture, setPendingCapture] = useState(null);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const fileInputRef = useRef(null);
+  const libraryInputRef = useRef(null);
+  const libraryTargetRef = useRef("front");
   const videoRef = useRef(null);
   const cameraStreamRef = useRef(null);
+  const dragControls = useDragControls();
+  const photoTargets = [
+    { id: "front", label: "Front photo" },
+    { id: "back", label: "Back photo" },
+    { id: "recycling", label: "Recycling label" },
+    { id: "inside", label: "Inside packaging" },
+  ];
+  const activeTargetLabel = photoTargets.find((target) => target.id === activeTarget)?.label || "Photo";
 
   useEffect(() => {
     let active = true;
@@ -2189,14 +2197,26 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
     canvas.height = video.videoHeight || 720;
     const context = canvas.getContext("2d");
     context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const capturedPhoto = { name: "Front packaging photo", type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.88) };
-    setPhoto(capturedPhoto);
-    setPhotos((current) => ({ ...current, front: capturedPhoto }));
+    const capturedPhoto = { name: `${activeTargetLabel}`, type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.88) };
+    setPendingCapture(capturedPhoto);
     triggerHapticFeedback();
   };
 
+  const acceptCapturedPhoto = () => {
+    if (!pendingCapture) return;
+    setPhotos((current) => ({ ...current, [activeTarget]: pendingCapture }));
+    setPendingCapture(null);
+    triggerHapticFeedback();
+  };
+
+  const openLibraryFor = (target) => {
+    libraryTargetRef.current = target;
+    setActiveTarget(target);
+    libraryInputRef.current?.click();
+  };
+
   const submitPhoto = async () => {
-    const payload = { ...photos, front: photos.front || photo, notes };
+    const payload = { ...photos, notes };
     if ((!payload.front && !payload.back && !payload.recycling && !payload.inside && !notes.trim()) || isSubmitting) return;
     setIsSubmitting(true);
     await onSubmit(product, payload);
@@ -2206,55 +2226,102 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
 
   return (
     <motion.div
-      className="fixed left-1/2 top-0 z-[90] flex h-[100dvh] w-full max-w-[430px] -translate-x-1/2 items-end overflow-hidden bg-neutral-950/30 backdrop-blur-md md:top-1/2 md:h-[min(760px,calc(100dvh-4rem))] md:-translate-y-1/2 md:rounded-[2.35rem]"
+      className="fixed left-1/2 top-0 z-[90] flex h-[100dvh] w-full max-w-[430px] -translate-x-1/2 items-end overflow-hidden bg-neutral-950/38 backdrop-blur-md md:top-1/2 md:h-[min(760px,calc(100dvh-4rem))] md:-translate-y-1/2 md:rounded-[2.35rem]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.22, ease: [0.22, 0.8, 0.2, 1] }}
       onClick={close}
     >
       <motion.div
-        initial={{ y: "105%" }}
+        initial={{ y: "105%", opacity: 0.98 }}
         animate={{ y: 0 }}
-        exit={{ y: "105%" }}
-        transition={{ type: "spring", stiffness: 300, damping: 34, mass: 1 }}
-        className="w-full rounded-t-[2rem] bg-white p-5 text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.28)]"
+        exit={{ y: "105%", opacity: 0.98, transition: { duration: 0.42, ease: [0.32, 0.72, 0, 1] } }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.18 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 110 || info.velocity.y > 820) close();
+        }}
+        transition={{ type: "spring", stiffness: 230, damping: 34, mass: 1.08 }}
+        className="max-h-[94dvh] w-full overflow-y-auto rounded-t-[2rem] bg-neutral-950 p-5 text-white shadow-[0_-28px_70px_rgba(0,0,0,0.34)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-neutral-200" />
-        <div className="flex items-start justify-between gap-3">
+        <button type="button" onPointerDown={(event) => dragControls.start(event)} className="mx-auto mb-4 block h-7 w-16 touch-none rounded-full" aria-label="Swipe down to close">
+          <span className="mx-auto mt-2 block h-1.5 w-12 rounded-full bg-white/24" />
+        </button>
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-xl font-semibold tracking-tight">Help verify this product</h3>
-            <p className="mt-1 text-sm leading-5 text-neutral-500">Upload front, back, recycling label, and inside packaging photos.</p>
+            <p className="mt-1 text-sm leading-5 text-white/60">Add the photos that show the real packaging materials.</p>
           </div>
-          <button type="button" onClick={close} className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-700"><CloseIcon size={18} /></button>
+          <BackButton onClick={close} variant="light" />
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-3xl bg-neutral-950 shadow-inner">
+        <div className="mt-4 flex flex-wrap gap-2">
+          {photoTargets.map((target) => (
+            <button
+              key={target.id}
+              type="button"
+              onClick={() => {
+                setActiveTarget(target.id);
+                setPendingCapture(null);
+              }}
+              className={`rounded-full px-3 py-2 text-xs font-semibold transition active:scale-[0.97] ${activeTarget === target.id ? "bg-white text-neutral-950" : "bg-white/12 text-white/70"}`}
+            >
+              {target.label}
+              {photos[target.id] && <span className="ml-1 text-emerald-300">✓</span>}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-[2rem] border-2 border-white/75 bg-white/5 shadow-2xl">
           <div className="relative h-64">
             <video ref={videoRef} className={`h-full w-full object-cover transition-opacity ${cameraReady ? "opacity-100" : "opacity-25"}`} muted playsInline autoPlay />
-            {photo?.dataUrl && <img src={photo.dataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-            {!cameraReady && !photo?.dataUrl && <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white/70">{cameraError || "Opening camera..."}</div>}
-            {photo?.dataUrl && <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/10"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-4xl font-semibold text-white shadow-lg">✓</span></div>}
+            {pendingCapture?.dataUrl && <img src={pendingCapture.dataUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+            <div className="absolute left-4 top-4 rounded-full bg-neutral-950/48 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">{activeTargetLabel}</div>
+            <span className="absolute left-8 top-8 h-8 w-8 border-l-4 border-t-4 border-white" />
+            <span className="absolute right-8 top-8 h-8 w-8 border-r-4 border-t-4 border-white" />
+            <span className="absolute bottom-8 left-8 h-8 w-8 border-b-4 border-l-4 border-white" />
+            <span className="absolute bottom-8 right-8 h-8 w-8 border-b-4 border-r-4 border-white" />
+            {!cameraReady && !pendingCapture?.dataUrl && <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white/70">{cameraError || "Opening camera..."}</div>}
+            {pendingCapture?.dataUrl && (
+              <>
+                <div className="absolute inset-x-4 top-11 text-center text-sm font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]">Use this photo for {activeTargetLabel.toLowerCase()}?</div>
+                <div className="absolute inset-0 flex items-center justify-center gap-5">
+                  <button type="button" onClick={acceptCapturedPhoto} className="flex h-14 w-14 items-center justify-center rounded-full border border-white/35 bg-emerald-500/58 text-3xl font-bold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl transition active:scale-[0.96]" aria-label="Use this photo">✓</button>
+                  <button type="button" onClick={() => setPendingCapture(null)} className="flex h-14 w-14 items-center justify-center rounded-full border border-white/35 bg-red-500/58 text-3xl font-bold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl transition active:scale-[0.96]" aria-label="Retake photo">×</button>
+                </div>
+              </>
+            )}
+            {!pendingCapture && <button type="button" onClick={takePhoto} disabled={!cameraReady} className="absolute bottom-4 left-1/2 min-h-11 -translate-x-1/2 rounded-full border border-white/40 bg-white/24 px-5 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl transition active:scale-[0.98] disabled:opacity-45">Take photo</button>}
           </div>
         </div>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={async (event) => { const selected = await readPhotoFile(event.target.files?.[0]); setPhoto(selected); setPhotos((current) => ({ ...current, front: selected })); }} />
+        <input ref={libraryInputRef} type="file" accept="image/*" className="hidden" onChange={async (event) => { const selected = await readPhotoFile(event.target.files?.[0]); if (selected) setPhotos((current) => ({ ...current, [libraryTargetRef.current]: selected })); event.target.value = ""; }} />
 
-        <div className="mt-4 flex justify-center">
-          <button type="button" onClick={photo ? () => setPhoto(null) : takePhoto} className={`flex h-16 w-16 items-center justify-center rounded-full border-[5px] border-white bg-white shadow-[0_8px_24px_rgba(0,0,0,0.14)] ring-2 ring-neutral-200 transition active:scale-95 ${photo ? "text-red-600" : "text-neutral-950"}`} aria-label={photo ? "Retake photo" : "Take photo"}>
-            {photo ? <CloseIcon size={22} /> : <span className="h-10 w-10 rounded-full bg-neutral-950" />}
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="bg-white">{photo ? "Change from library" : "Add photo from library"}</Button>
-          <Button onClick={submitPhoto}>{isSubmitting ? "Submitting..." : "Submit"}</Button>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <PhotoUploadSlot label="Back photo" value={photos.back} accepted={Boolean(photos.back)} showCaption={false} onChange={(value) => setPhotos((current) => ({ ...current, back: value }))} />
-          <PhotoUploadSlot label="Recycling label" value={photos.recycling} accepted={Boolean(photos.recycling)} showCaption={false} onChange={(value) => setPhotos((current) => ({ ...current, recycling: value }))} />
-          <PhotoUploadSlot label="Inside packaging" value={photos.inside} accepted={Boolean(photos.inside)} showCaption={false} onChange={(value) => setPhotos((current) => ({ ...current, inside: value }))} />
-          <label className="block rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-left"><span className="block text-sm font-semibold text-neutral-950">Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Claims, resin codes, liner notes" className="mt-2 min-h-20 w-full resize-none bg-transparent text-sm outline-none" /></label>
+        <div className="mt-5 rounded-3xl bg-white p-4 text-neutral-950 shadow-sm">
+          <div className="mb-3">
+            <div className="text-sm font-semibold">Packaging evidence</div>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">Choose a section above before taking a photo, or add one from your library.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {photoTargets.map((target) => (
+              <button
+                key={target.id}
+                type="button"
+                onClick={() => openLibraryFor(target.id)}
+                className={`rounded-2xl border p-3 text-left transition active:scale-[0.98] ${photos[target.id] ? "border-emerald-200 bg-emerald-50" : "border-neutral-200 bg-[#f7f3eb]"}`}
+              >
+                {photos[target.id]?.dataUrl && <div className="relative mb-2 h-16 overflow-hidden rounded-xl bg-white shadow-sm"><img src={photos[target.id].dataUrl} alt="" className="h-full w-full object-cover" /><span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[13px] font-bold text-white shadow-sm">✓</span></div>}
+                <span className="block text-sm font-semibold leading-5 text-neutral-950">{target.label}</span>
+                <span className={`mt-1 block text-xs ${photos[target.id] ? "font-medium text-emerald-700" : "text-neutral-500"}`}>{photos[target.id] ? "Selected" : "Add from library"}</span>
+              </button>
+            ))}
+          </div>
+          <label className="mt-3 block rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-left"><span className="block text-sm font-semibold text-neutral-950">Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Claims, resin codes, liner notes, or anything unclear." className="mt-2 min-h-20 w-full resize-none bg-transparent text-sm outline-none" /></label>
+          <Button onClick={submitPhoto} className="mt-3 w-full">{isSubmitting ? "Submitting..." : "Submit for review"}</Button>
         </div>
       </motion.div>
     </motion.div>
@@ -3161,9 +3228,6 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
                 >
                   {product.rating}
                 </motion.div>
-                <motion.div initial={{ opacity: 0, y: 4, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.34, duration: 0.35, ease: "easeOut" }} className="rounded-full bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-600">
-                  {product.scoreConfidenceLabel}
-                </motion.div>
               </div>
             )}
           </div>
@@ -3171,13 +3235,10 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
           <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{displayName}</h2>
           <p className="text-neutral-500">{displayBrand}</p>
           <p className="mt-2 text-xs text-neutral-500">
-            {product.category?.name} • {product.scoreConfidenceLabel || reviewStatusLabel(product.verification)} • {dataQualityLabel(product.confidence)}
+            {product.category?.name} • {dataQualityLabel(product.confidence)}
           </p>
           {isEstimatedScore && (
-            <button type="button" onClick={() => setShowPhotoSubmit(true)} className="mx-auto mt-4 block rounded-2xl bg-[#f7f3eb] px-4 py-3 text-left shadow-sm transition active:scale-[0.99]">
-              <span className="block text-sm font-semibold text-neutral-950">Help verify this product</span>
-              <span className="mt-1 block text-xs leading-5 text-neutral-500">Upload front, back, recycling label, and inside packaging photos.</span>
-            </button>
+            <Button onClick={() => setShowPhotoSubmit(true)} className="mx-auto mt-4">Help verify this product</Button>
           )}
         </div>
       </Card>
@@ -3689,11 +3750,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
     persistReviewedSubmission(submission, {
       ...(edits.name ? { name: edits.name } : {}),
       ...(edits.brand ? { brand: edits.brand } : {}),
-      scorePending: true,
+      scorePending: false,
       scoreStatus: "needs_more_info",
       verification: "unverified",
       confidence: "Low",
-      scoringNote: note || "Needs more packaging evidence before a score can be assigned."
+      scoringNote: note || "Estimated score remains active while more packaging evidence is collected."
     }, "Marked as needing more info");
   };
 
