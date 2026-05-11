@@ -316,6 +316,176 @@ const scoringRubric = {
 const clampScore = (score) => Math.max(0, Math.min(100, Math.round(Number.isFinite(Number(score)) ? Number(score) : 0)));
 const getById = (collection, id) => (db[collection] || []).find((item) => item.id === id) || null;
 
+const scoreConfidenceLabels = {
+  estimated: "Estimated from common packaging",
+  image_checked: "Checked from product images",
+  community_verified: "Community verified",
+  brand_confirmed: "Brand confirmed",
+  unknown: "Needs packaging info",
+};
+
+const packagingTemplates = [
+  {
+    id: "cereal_box_bag",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["cereal", "cheerios", "granola"],
+    score: 42,
+    confidence: "estimated",
+    explanation: "Based on common cereal packaging: a paperboard box with a plastic inner bag.",
+    components: [
+      { partType: "outer_packaging", displayName: "Outer box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Likely paperboard/cardboard outer box." },
+      { partType: "inner_packaging", displayName: "Inner bag", materialId: "plastic", plasticTypeId: "ldpe4", baseImpact: -12, materialImpact: -12, contextIds: ["food_contact", "internal"], notes: "Likely plastic film inner bag in direct food contact." },
+    ],
+  },
+  {
+    id: "chips_flexible_bag",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["chips", "crisps", "tortilla chips", "potato chips"],
+    score: 28,
+    confidence: "estimated",
+    explanation: "Based on common chip packaging: a flexible multilayer plastic bag.",
+    components: [
+      { partType: "main_container", displayName: "Flexible bag", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -18, materialImpact: -16, contextIds: ["food_contact"], notes: "Likely flexible plastic or metallized multilayer bag." },
+    ],
+  },
+  {
+    id: "canned_soup_lined_can",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["canned soup", "soup", "broth", "stew"],
+    score: 15,
+    confidence: "estimated",
+    explanation: "Based on common canned soup packaging: metal can with an internal liner and hot-fill liquid food contact.",
+    components: [
+      { partType: "main_container", displayName: "Metal can", materialId: "metal", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Likely recyclable steel or aluminum can body." },
+      { partType: "liner", displayName: "Can liner", materialId: "liner_unknown", plasticTypeId: "unknown_plastic", baseImpact: -8, materialImpact: 0, contextIds: ["food_contact", "hot_food", "heat_sensitive", "acidic", "long_storage"], linerType: "unknown", notes: "Likely protective internal can liner with heat-sensitive liquid food contact." },
+    ],
+  },
+  {
+    id: "tuna_lined_can",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["tuna", "sardine", "salmon can"],
+    score: 19,
+    confidence: "estimated",
+    explanation: "Based on common canned tuna packaging: metal can with an unknown liner, fatty food contact, and long storage.",
+    components: [
+      { partType: "main_container", displayName: "Metal can", materialId: "metal", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Likely recyclable metal can body." },
+      { partType: "liner", displayName: "Can liner", materialId: "liner_unknown", plasticTypeId: "unknown_plastic", baseImpact: -8, materialImpact: 0, contextIds: ["food_contact", "fatty", "long_storage"], linerType: "unknown", notes: "Likely protective internal liner in contact with fatty food over long storage." },
+    ],
+  },
+  {
+    id: "bottled_water_pet",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["bottled water", "spring water", "distilled water", "water bottle"],
+    score: 18,
+    confidence: "estimated",
+    explanation: "Based on common bottled water packaging: PET bottle with a plastic cap.",
+    components: [
+      { partType: "main_container", displayName: "Bottle", materialId: "plastic", plasticTypeId: "pet1", baseImpact: -14, materialImpact: -10, contextIds: ["drink_contact", "heat_sensitive"], notes: "Likely PET bottle in drink contact; storage and shipping temperature can vary." },
+      { partType: "cap_lid", displayName: "Cap", materialId: "plastic", plasticTypeId: "hdpe2", baseImpact: -6, materialImpact: -5, notes: "Likely plastic cap." },
+    ],
+  },
+  {
+    id: "paper_wrapped_bar_soap",
+    categoryIds: ["cat_personal"],
+    keywords: ["bar soap", "paper wrapped soap", "paper-wrapped"],
+    score: 96,
+    confidence: "estimated",
+    explanation: "Based on common paper-wrapped bar soap packaging with no plastic packaging identified.",
+    components: [
+      { partType: "outer_packaging", displayName: "Paper wrap", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Likely paper wrap with minimal plastic exposure." },
+    ],
+  },
+  {
+    id: "zero_packaging",
+    categoryIds: ["cat_plastic_free"],
+    keywords: ["zero packaging", "package free", "unpackaged", "bulk refill"],
+    score: 100,
+    confidence: "estimated",
+    explanation: "Based on a zero-packaging signal.",
+    components: [],
+  },
+  {
+    id: "dishwasher_pods",
+    categoryIds: ["cat_cleaning"],
+    keywords: ["dishwasher pod", "dishwasher pods", "dishwasher detergent", "detergent pod", "pva"],
+    score: 15,
+    confidence: "estimated",
+    explanation: "Based on common dishwasher pods: container or box plus PVA/PVOH dissolvable film.",
+    components: [
+      { partType: "main_container", displayName: "Container or box", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -8, materialImpact: -8, notes: "Likely plastic tub, pouch, or coated box." },
+      { partType: "inner_packaging", displayName: "Pod film", materialId: "plastic", plasticTypeId: "pva", baseImpact: -15, materialImpact: -15, contextIds: ["heat"], notes: "Likely dissolvable PVA/PVOH pod film used during hot dishwasher cycles." },
+    ],
+  },
+  {
+    id: "deodorant_plastic_applicator",
+    categoryIds: ["cat_personal"],
+    keywords: ["deodorant", "antiperspirant"],
+    score: 32,
+    confidence: "estimated",
+    explanation: "Based on common deodorant packaging: plastic applicator and cap.",
+    components: [
+      { partType: "main_container", displayName: "Applicator", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -10, materialImpact: -5, contextIds: ["skin", "reuse"], notes: "Likely plastic applicator in skin-product use." },
+      { partType: "cap_lid", displayName: "Cap", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -8, materialImpact: -5, notes: "Likely plastic cap." },
+    ],
+  },
+  {
+    id: "dairy_tub_carton",
+    categoryIds: ["cat_food_drink"],
+    keywords: ["yogurt", "milk", "cheese", "cream", "dairy"],
+    score: 30,
+    confidence: "estimated",
+    explanation: "Based on common dairy packaging: plastic tub/carton layer or plastic cap with fatty food contact.",
+    components: [
+      { partType: "main_container", displayName: "Dairy container", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -14, materialImpact: -12, contextIds: ["food_contact", "fatty"], notes: "Likely plastic tub, coated carton, or layered dairy packaging." },
+      { partType: "cap_lid", displayName: "Lid or cap", materialId: "plastic", plasticTypeId: "unknown_plastic", baseImpact: -6, materialImpact: -8, notes: "Likely plastic lid, film, or cap." },
+    ],
+  },
+];
+
+function getScoreConfidenceLabel(value) {
+  return scoreConfidenceLabels[value] || scoreConfidenceLabels.unknown;
+}
+
+function createScoringEvidence(sourceType, sourceLabel, contribution, notes) {
+  return { source_type: sourceType, source_label: sourceLabel, confidence_contribution: contribution, notes };
+}
+
+function getProductSearchText(product = {}, category = null) {
+  return [
+    product.name,
+    product.brand,
+    category?.name,
+    product.category,
+    product.quantity,
+    product.productType,
+    product.source,
+    ...(product.categories_tags || product.categoriesTags || []),
+    product.ingredients,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function matchPackagingTemplate(product = {}, category = null) {
+  const text = getProductSearchText(product, category);
+  if (!text.trim() && !category?.id) return null;
+  return packagingTemplates.find((template) => {
+    const categoryMatch = !template.categoryIds?.length || template.categoryIds.includes(category?.id || product.categoryId);
+    const keywordMatch = template.keywords.some((keyword) => text.includes(keyword));
+    return categoryMatch && keywordMatch;
+  }) || null;
+}
+
+function createTemplateParts(product, template) {
+  return (template?.components || []).map((component, index) => ({
+    id: `${product.id}_${template.id}_${index}`,
+    productId: product.id,
+    estimated: true,
+    evidenceSourceType: "category_template",
+    ...component,
+    displayName: component.displayName,
+    notes: component.notes || template.explanation,
+  }));
+}
+
 function getScoreTheme(score) {
   const value = clampScore(score);
   if (value >= 92) return { ring: "#00894b", bg: "#e6f8ef", label: "Near-ideal" };
@@ -345,7 +515,7 @@ const getScoreBadgeStyle = (theme) => ({
 });
 
 function reviewStatusLabel(value) {
-  return { inferred: "Best guess — needs review", unverified: "Needs review", community_verified: "Community checked", brand_verified: "Brand confirmed", expert_verified: "Expert checked", external_tested: "External lab data" }[value] || "Needs review";
+  return { estimated: "Estimated score", inferred: "Estimated score", unverified: "Needs packaging info", community_verified: "Community verified", brand_verified: "Brand confirmed", brand_confirmed: "Brand confirmed", expert_verified: "Expert checked", image_checked: "Checked from product images", external_tested: "External lab data" }[value] || "Needs packaging info";
 }
 
 function dataQualityLabel(value) {
@@ -754,11 +924,15 @@ function hydrateProduct(product, extraParts = []) {
   const category = getById("categories", product.categoryId);
   const plasticListEvidence = getPlasticListEvidence(product.id);
   const plasticListPenalty = Math.max(-40, plasticListEvidence.reduce((sum, item) => sum + (item.scoreImpact || 0), 0));
-  const rawParts = [...db.productParts, ...extraParts].filter((part) => part.productId === product.id);
+  const explicitParts = [...db.productParts, ...extraParts].filter((part) => part.productId === product.id);
+  const packagingTemplate = explicitParts.length ? null : matchPackagingTemplate(product, category);
+  const templateParts = packagingTemplate ? createTemplateParts(product, packagingTemplate) : [];
+  const rawParts = explicitParts.length ? explicitParts : templateParts;
   const parts = rawParts.map((part) => {
     const material = getById("materials", part.materialId);
     const plastic = getById("plasticTypes", part.plasticTypeId);
-    const contexts = getPartContexts(part.id).filter((item) => !(item.contextId === "heat" && isColdPreparedDrink(product)));
+    const templateContexts = (part.contextIds || []).map((contextId) => ({ id: `${part.id}_${contextId}`, partId: part.id, contextId, context: getById("contexts", contextId) })).filter((item) => item.context);
+    const contexts = [...getPartContexts(part.id), ...templateContexts].filter((item) => !(item.contextId === "heat" && isColdPreparedDrink(product)));
     const linerAdjustment = part.partType === "liner" && material?.linerImpact ? material.linerImpact : 0;
     const labelEvidenceBonus = getLabelEvidenceBonus(part);
     // Context penalties can stack heavily (heat + acidic + food etc)
@@ -798,11 +972,11 @@ function hydrateProduct(product, extraParts = []) {
     plasticListPenalty
   ) : null;
   const calibrationScores = {
-    paper_soap: 98,
+    paper_soap: 96,
     old_spice: 32,
     always_ultra: 12,
     allens_apple: 19,
-    kirkland_tuna: 48,
+    kirkland_tuna: 19,
     kirkland_dishwasher: 12,
     blueland_dishwasher_tablets: 84,
     campbells_soup: 15,
@@ -812,7 +986,7 @@ function hydrateProduct(product, extraParts = []) {
     chickfila_deluxe: 18
   };
   const scorePending = isPendingReviewProduct(product);
-  const score = scorePending ? null : product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? rawScore;
+  const score = scorePending ? null : product.scoreOverride ?? calibrationScores[product.id] ?? plasticListCalculatedScore ?? packagingTemplate?.score ?? rawScore;
   const healthRiskPenalty = Math.abs(normalizedContextPressure) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 7;
   const plasticExposurePenalty = Math.abs(normalizedPartPenalty) + Math.abs(plasticListPenalty) + parts.filter((part) => part.plastic?.code !== "NONE").length * 10;
   const recyclabilityStatus = combineRecyclability(parts.map((part) => part.recyclability));
@@ -830,7 +1004,19 @@ function hydrateProduct(product, extraParts = []) {
   const hotCannedFoodTerms = ["soup", "broth", "stew", "chili", "sauce", "gravy"];
   const hasHotCannedFoodSignal = hotCannedFoodTerms.some((term) => name.includes(term)) || uniqueRiskFactors.some((factor) => ["hot_food", "heat_soup"].includes(factor.id));
   const hasHighRiskCanScenario = hasCanLiner && hasHotCannedFoodSignal;
-  const dynamicSources = hasHighRiskCanScenario ? [{ sourceId: "source_canned_soup_bpa", source: getById("sources", "source_canned_soup_bpa"), entityType: "dynamic", entityId: product.id }] : [];
+  const scoreConfidence = product.scoreConfidence || (product.verification === "brand_confirmed" || product.verification === "brand_verified" ? "brand_confirmed" : product.verification === "community_verified" || product.verification === "expert_verified" ? "community_verified" : product.scoreStatus === "approved_photo" || product.scoreStatus === "photo_review" ? "image_checked" : packagingTemplate ? "estimated" : explicitParts.length || plasticListEvidence.length ? "estimated" : "unknown");
+  const scoreConfidenceLabel = getScoreConfidenceLabel(scoreConfidence);
+  const scoringEvidence = [
+    ...(packagingTemplate ? [createScoringEvidence("category_template", `Category template: ${packagingTemplate.id}`, scoreConfidence, packagingTemplate.explanation)] : []),
+    ...(product.packaging ? [createScoringEvidence("product_api_packaging", "Product API packaging field", "estimated", product.packaging)] : []),
+    ...(product.imageUrl ? [createScoringEvidence("product_image", "Product image available", "image_checked", "Product image can help verify packaging shape but does not fully confirm materials.")] : []),
+    ...(product.verification === "community_verified" ? [createScoringEvidence("community_upload", "Community verified", "community_verified", "Community evidence is attached to this product.")] : []),
+    ...(scoreConfidence === "brand_confirmed" ? [createScoringEvidence("brand_confirmation", "Brand confirmed", "brand_confirmed", "Brand or label evidence confirms packaging.")] : []),
+  ];
+  const dynamicSources = [
+    ...(hasHighRiskCanScenario ? [{ sourceId: "source_canned_soup_bpa", source: getById("sources", "source_canned_soup_bpa"), entityType: "dynamic", entityId: product.id }] : []),
+    ...(packagingTemplate ? [{ sourceId: `template_${packagingTemplate.id}`, source: { id: `template_${packagingTemplate.id}`, title: "Based on category template", organization: "PlasticFree scoring model", credibility: "Estimated", summary: `${packagingTemplate.explanation} Upload packaging photos to verify.` }, entityType: "category_template", entityId: product.id }] : []),
+  ];
   const evidenceSources = plasticListEvidence.map((item) => ({ sourceId: item.sourceId, source: item.source, entityType: "plasticlist", entityId: item.id }));
   const sources = [
     ...parts.flatMap((part) => getSourcesFor({ entityType: "part", entityId: part.id })),
@@ -840,7 +1026,8 @@ function hydrateProduct(product, extraParts = []) {
     ...evidenceSources,
   ].filter((link) => link.source);
   const uniqueSources = Array.from(new Map(sources.map((link) => [link.source.id, link])).values());
-  return { ...product, category, parts, score, scorePending, theme, rating: theme.label, sources: uniqueSources, splitScores, riskFactors: uniqueRiskFactors, heatFlags, plasticListEvidence, hasCanLiner, hasHighRiskCanScenario, alternatives, community: { scans: Math.max(3, parts.length * 3), favorites: db.saves.filter((save) => save.productId === product.id).length } };
+  const scoringNote = product.scoringNote || (packagingTemplate ? `Based on common packaging for ${category?.name || "this category"}. Upload packaging photos to verify.` : "Needs packaging info before this score can be trusted.");
+  return { ...product, category, parts, score, scorePending, scoreConfidence, scoreConfidenceLabel, scoringEvidence, packagingTemplate, scoringNote, theme, rating: theme.label, sources: uniqueSources, splitScores, riskFactors: uniqueRiskFactors, heatFlags, plasticListEvidence, hasCanLiner, hasHighRiskCanScenario, alternatives, community: { scans: Math.max(3, parts.length * 3), favorites: db.saves.filter((save) => save.productId === product.id).length } };
 }
 
 
@@ -1212,6 +1399,7 @@ async function fetchOpenFoodFactsProduct(barcode) {
       brand: product.brands?.split(",")[0]?.trim() || "",
       imageUrl: product.image_front_url || "",
       quantity: product.quantity || "",
+      categories_tags: product.categories_tags || [],
       source: "Open Food Facts",
     };
   }
@@ -1642,8 +1830,8 @@ function DetailScreen({ product, part, close }) {
   const sources = [...getSourcesFor({ entityType: "part", entityId: part.id }), ...getSourcesFor({ entityType: "plastic_type", entityId: part.plasticTypeId }), ...part.contexts.flatMap((context) => getSourcesFor({ entityType: "context", entityId: context.contextId }))];
   const uniqueSources = Array.from(new Map(sources.map((item) => [item.source.id, item])).values());
   const swipeBackHandlers = useSwipeBack(close, true);
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5" {...swipeBackHandlers}><Header title="Why" right={<BackButton onClick={close} />} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product.name}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{part.displayName}</h2><div className="mt-3 inline-flex rounded-full bg-[#f7f3eb] px-3 py-1 text-sm text-neutral-700">{getPartMaterialLabel(part) || "Unknown material"}</div><p className="mt-4 text-sm leading-6 text-neutral-500">{part.notes}</p>{part.linerInfo && <div className="mt-4 rounded-2xl bg-[#f7f3eb] p-3"><div className="text-sm font-semibold text-neutral-950">{part.linerType === "bpa_free_confirmed" ? "Label confirmed" : "Liner assumption"}: {part.linerInfo.linerLabel}</div><p className="mt-1 text-sm leading-5 text-neutral-500">{part.linerInfo.linerSummary}</p></div>}</div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Score impact</h3><div className="mt-3 space-y-2 text-sm"><div className="flex justify-between"><span>Component</span><span>{part.baseImpact}</span></div><div className="flex justify-between"><span>Material type</span><span>{part.materialImpact}</span></div>
-          {part.linerInfo && <div className="flex justify-between"><span>{part.linerInfo.linerLabel}</span><span>{part.linerAdjustment}</span></div>}{part.labelEvidenceBonus > 0 && <div className="flex justify-between text-emerald-700"><span>Label evidence bonus</span><span>+{part.labelEvidenceBonus}</span></div>}<div className="flex justify-between"><span>Context</span><span>{part.contextImpact}</span></div><div className="flex justify-between border-t border-neutral-200 pt-2 font-semibold"><span>Total impact</span><span>{part.totalImpact}</span></div></div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Context modifiers</h3><div className="mt-3 space-y-2">{part.contexts.length ? part.contexts.map((item) => <div key={item.id} className="rounded-2xl bg-[#f7f3eb] p-3"><div className="flex justify-between gap-3 font-medium text-neutral-950"><span>{item.context.name}</span><span>{item.context.penalty}</span></div><p className="mt-1 text-sm leading-5 text-neutral-500">{item.context.summary}</p></div>) : <p className="text-sm text-neutral-500">No special context modifiers attached.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Sources & research</h3><div className="mt-3 space-y-2">{uniqueSources.length ? uniqueSources.map((link) => <SourceCard key={link.source.id} link={link} />) : <p className="text-sm text-neutral-500">No sources attached yet.</p>}</div></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5" {...swipeBackHandlers}><Header title="Why" right={<BackButton onClick={close} />} /><Card><div className="p-5"><div className="text-sm text-neutral-500">{product.name}</div><h2 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950">{part.estimated ? `Likely ${part.displayName.toLowerCase()}` : part.displayName}</h2><div className="mt-3 inline-flex rounded-full bg-[#f7f3eb] px-3 py-1 text-sm text-neutral-700">{getPartMaterialLabel(part) || "Unknown material"}</div>{part.estimated && <div className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm leading-5 text-amber-900"><span className="font-semibold">Based on category template.</span> This part is an estimate until packaging photos or label evidence are reviewed.</div>}<p className="mt-4 text-sm leading-6 text-neutral-500">{part.notes}</p>{part.linerInfo && <div className="mt-4 rounded-2xl bg-[#f7f3eb] p-3"><div className="text-sm font-semibold text-neutral-950">{part.linerType === "bpa_free_confirmed" ? "Label confirmed" : "Liner assumption"}: {part.linerInfo.linerLabel}</div><p className="mt-1 text-sm leading-5 text-neutral-500">{part.linerInfo.linerSummary}</p></div>}</div></Card><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Score impact</h3><div className="mt-3 space-y-2 text-sm"><div className="flex justify-between"><span>Component</span><span>{part.baseImpact}</span></div><div className="flex justify-between"><span>Material type</span><span>{part.materialImpact}</span></div>
+          {part.linerInfo && <div className="flex justify-between"><span>{part.linerInfo.linerLabel}</span><span>{part.linerAdjustment}</span></div>}{part.labelEvidenceBonus > 0 && <div className="flex justify-between text-emerald-700"><span>Label evidence bonus</span><span>+{part.labelEvidenceBonus}</span></div>}<div className="flex justify-between"><span>Context</span><span>{part.contextImpact}</span></div><div className="flex justify-between border-t border-neutral-200 pt-2 font-semibold"><span>Total impact</span><span>{part.totalImpact}</span></div></div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Context modifiers</h3><div className="mt-3 space-y-2">{part.contexts.length ? part.contexts.map((item) => <div key={item.id} className="rounded-2xl bg-[#f7f3eb] p-3"><div className="flex justify-between gap-3 font-medium text-neutral-950"><span>{item.context.name}</span><span>{item.context.penalty}</span></div><p className="mt-1 text-sm leading-5 text-neutral-500">{item.context.summary}</p></div>) : <p className="text-sm text-neutral-500">No special context modifiers attached.</p>}</div></div><div className="mt-5 rounded-3xl bg-white p-4 shadow-sm"><h3 className="font-semibold text-neutral-950">Sources & research</h3><div className="mt-3 space-y-2">{part.estimated && <div className="rounded-2xl bg-[#f7f3eb] p-3"><div className="text-xs font-medium uppercase tracking-wide text-neutral-500">Category template</div><div className="mt-1 font-medium text-neutral-950">Based on category template</div><p className="mt-1 text-sm leading-5 text-neutral-500">This is estimated from common packaging and should be verified with product photos.</p></div>}{uniqueSources.length ? uniqueSources.map((link) => <SourceCard key={link.source.id} link={link} />) : !part.estimated && <p className="text-sm text-neutral-500">No sources attached yet.</p>}</div></div></div>;
 }
 
 function ScoreBreakdownPanel({ product, close }) {
@@ -1956,6 +2144,8 @@ function hasProductPhoto(product = {}) {
 
 function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
   const [photo, setPhoto] = useState(null);
+  const [photos, setPhotos] = useState({});
+  const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -1999,14 +2189,17 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
     canvas.height = video.videoHeight || 720;
     const context = canvas.getContext("2d");
     context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setPhoto({ name: "Product photo", type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.88) });
+    const capturedPhoto = { name: "Front packaging photo", type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.88) };
+    setPhoto(capturedPhoto);
+    setPhotos((current) => ({ ...current, front: capturedPhoto }));
     triggerHapticFeedback();
   };
 
   const submitPhoto = async () => {
-    if (!photo || isSubmitting) return;
+    const payload = { ...photos, front: photos.front || photo, notes };
+    if ((!payload.front && !payload.back && !payload.recycling && !payload.inside && !notes.trim()) || isSubmitting) return;
     setIsSubmitting(true);
-    await onSubmit(product, photo);
+    await onSubmit(product, payload);
     setIsSubmitting(false);
     close();
   };
@@ -2031,8 +2224,8 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-neutral-200" />
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-xl font-semibold tracking-tight">Add product photo</h3>
-            <p className="mt-1 text-sm leading-5 text-neutral-500">Submit a front photo for admin approval.</p>
+            <h3 className="text-xl font-semibold tracking-tight">Help verify this product</h3>
+            <p className="mt-1 text-sm leading-5 text-neutral-500">Upload front, back, recycling label, and inside packaging photos.</p>
           </div>
           <button type="button" onClick={close} className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-700"><CloseIcon size={18} /></button>
         </div>
@@ -2045,7 +2238,7 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
             {photo?.dataUrl && <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/10"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-4xl font-semibold text-white shadow-lg">✓</span></div>}
           </div>
         </div>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={async (event) => setPhoto(await readPhotoFile(event.target.files?.[0]))} />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={async (event) => { const selected = await readPhotoFile(event.target.files?.[0]); setPhoto(selected); setPhotos((current) => ({ ...current, front: selected })); }} />
 
         <div className="mt-4 flex justify-center">
           <button type="button" onClick={photo ? () => setPhoto(null) : takePhoto} className={`flex h-16 w-16 items-center justify-center rounded-full border-[5px] border-white bg-white shadow-[0_8px_24px_rgba(0,0,0,0.14)] ring-2 ring-neutral-200 transition active:scale-95 ${photo ? "text-red-600" : "text-neutral-950"}`} aria-label={photo ? "Retake photo" : "Take photo"}>
@@ -2055,7 +2248,13 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="bg-white">{photo ? "Change from library" : "Add photo from library"}</Button>
-          <Button onClick={submitPhoto} className={photo ? "" : "bg-neutral-300 text-neutral-500 shadow-none hover:bg-neutral-300"}>{isSubmitting ? "Submitting..." : "Submit"}</Button>
+          <Button onClick={submitPhoto}>{isSubmitting ? "Submitting..." : "Submit"}</Button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <PhotoUploadSlot label="Back photo" value={photos.back} accepted={Boolean(photos.back)} showCaption={false} onChange={(value) => setPhotos((current) => ({ ...current, back: value }))} />
+          <PhotoUploadSlot label="Recycling label" value={photos.recycling} accepted={Boolean(photos.recycling)} showCaption={false} onChange={(value) => setPhotos((current) => ({ ...current, recycling: value }))} />
+          <PhotoUploadSlot label="Inside packaging" value={photos.inside} accepted={Boolean(photos.inside)} showCaption={false} onChange={(value) => setPhotos((current) => ({ ...current, inside: value }))} />
+          <label className="block rounded-2xl border border-neutral-200 bg-[#f7f3eb] p-3 text-left"><span className="block text-sm font-semibold text-neutral-950">Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Claims, resin codes, liner notes" className="mt-2 min-h-20 w-full resize-none bg-transparent text-sm outline-none" /></label>
         </div>
       </motion.div>
     </motion.div>
@@ -2645,13 +2844,16 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
   const bobaJuice = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_juice");
   const bobaPearls = products.find((product) => product.id === "plasticlist_boba_guys_black_tea_pearls");
   const bobaFruity = products.find((product) => product.id === "plasticlist_boba_guys_fruity_flavored_tea");
+  const cheerios = hydrateProduct({ id: "test_cheerios", name: "Cheerios Cereal", brand: "General Mills", categoryId: "cat_food_drink" });
+  const estimatedSoup = hydrateProduct({ id: "test_canned_soup", name: "Organic Canned Soup", brand: "Test", categoryId: "cat_food_drink" });
+  const unknownProduct = hydrateProduct({ id: "test_unknown", name: "Mystery Item", brand: "Unknown" });
   const tests = [
     [clampScore(-10) === 0, "clampScore clamps negative scores to 0"],
     [clampScore(120) === 100, "clampScore clamps scores above 100 to 100"],
     [getScoreTheme(70).label === "Low plastic concern", "70 should be Low plastic concern"],
     [getScoreTheme(72).ring !== getScoreTheme(82).ring && getScoreTheme(82).ring !== getScoreTheme(92).ring, "green score tiers should be visually distinct"],
     [getScoreTheme(92).label === "Near-ideal" && !getScoreTheme(92).shadow, "92+ scores should use clean near-ideal styling without glow"],
-    [reviewStatusLabel("inferred") === "Best guess — needs review", "inferred should be translated"],
+    [reviewStatusLabel("inferred") === "Estimated score", "inferred should not be shown to users"],
     [dataQualityLabel("Medium") === "Good data", "confidence should be translated into data quality"],
     [getBottomNavItems().map((item) => item[0]).join(",") === "history,search,scan,social,profile", "scan should be centered"],
     [soap?.score >= 80, "paper soap should score green"],
@@ -2670,7 +2872,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [products.find(p => p.id === "old_spice")?.parts.filter((part) => part.plasticTypeId === "pp5").every((part) => part.severity?.label === "Plastic packaging"), "same PP packaging should use a consistent visible label"],
     [products.find(p => p.id === "always_ultra")?.score === 12, "Always Ultra Thin should match calibrated common-ground score"],
     [products.find(p => p.id === "allens_apple")?.score === 19, "Allen’s Apple Juice should match calibrated common-ground score"],
-    [products.find(p => p.id === "kirkland_tuna")?.score === 48, "Kirkland tuna should stay mid-risk due to unknown liner and fatty contents"],
+    [products.find(p => p.id === "kirkland_tuna")?.score === 19, "Kirkland tuna should keep calibrated high-concern score"],
     [products.find(p => p.id === "kirkland_tuna")?.riskFactors.some((factor) => factor.name === "Fatty or oily contents"), "Kirkland tuna should keep the fatty contents risk factor"],
     [products.find(p => p.id === "kirkland_tuna")?.parts.find(part => part.id === "tuna_liner")?.linerInfo?.linerRisk === "medium", "unknown tuna liner should use moderate liner assumption"],
     [products.find(p => p.id === "campbells_soup")?.parts.find(part => part.id === "soup_liner")?.linerAdjustment === -12, "unknown soup liner should not default to worst-case BPA/PVC penalty"],
@@ -2684,8 +2886,13 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [dishwasher?.parts.some((part) => part.displayName === "Pod film"), "dishwasher should include pod film"],
     [db.users.some((user) => user.role === "Health food creator"), "suggested creators should exist"],
     [getFavoritesByCategory(products)["Personal care"]?.length >= 1, "favorites should group by product type"],
-    [products.find(p => p.id === "paper_soap")?.score === 98, "paper-wrapped soap should use near-ideal calibrated score"],
+    [products.find(p => p.id === "paper_soap")?.score === 96, "paper-wrapped soap should use near-ideal calibrated score"],
     [products.find(p => p.id === "paper_soap")?.category?.name === "Personal care", "paper-wrapped soap should live under Personal care"],
+    [cheerios.parts.some((part) => part.displayName === "Outer box" && part.materialId === "paper") && cheerios.parts.some((part) => part.displayName === "Inner bag" && part.plasticTypeId === "ldpe4"), "Cheerios/cereal should get cardboard box plus plastic inner bag template"],
+    [cheerios.score >= 35 && cheerios.score <= 50 && cheerios.scoreConfidence === "estimated", "Cheerios/cereal should receive an estimated score around 35-50"],
+    [cheerios.scoreConfidenceLabel === "Estimated from common packaging", "Estimated products should show confidence label"],
+    [estimatedSoup.parts.some((part) => part.partType === "liner") && estimatedSoup.riskFactors.some((factor) => ["Hot food contact", "Heat-sensitive product", "Hot canned liquid"].includes(factor.name)), "Canned soup template should include liner and heat-sensitive risk"],
+    [unknownProduct.scoreConfidenceLabel === "Needs packaging info" && Array.isArray(unknownProduct.parts), "Unknown product should not crash and should ask for packaging info"],
     [scoringRubric.nearIdeal.range === "95–98", "scoring rubric should define near-ideal packaging range"],
     
     [typeof BarcodeScanIcon === "function", "barcode scan icon should render from custom SVG"],
@@ -2776,6 +2983,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   const isFavorite = favoriteIds.includes(product.id);
   const productPhotoMissing = imageMissing || !hasProductPhoto(product);
   const isNearIdealScore = !product.scorePending && product.score >= 92;
+  const isEstimatedScore = product.scoreConfidence === "estimated";
   const displayName = isPendingPlaceholderText(product.name) ? "Product details needed" : product.name;
   const displayBrand = isPendingPlaceholderText(product.brand, "brand") ? "Pending review" : product.brand;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
@@ -2926,6 +3134,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
           </div>
 
           <div className="mt-2 flex flex-col items-center gap-1">
+            {isEstimatedScore && !product.scorePending && <div className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-400">Estimated score</div>}
             {product.scorePending ? (
               <div className="rounded-full bg-neutral-100 px-4 py-2 text-xs font-semibold text-neutral-500 shadow-inner">Score pending review</div>
             ) : (
@@ -2952,6 +3161,9 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
                 >
                   {product.rating}
                 </motion.div>
+                <motion.div initial={{ opacity: 0, y: 4, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.34, duration: 0.35, ease: "easeOut" }} className="rounded-full bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-600">
+                  {product.scoreConfidenceLabel}
+                </motion.div>
               </div>
             )}
           </div>
@@ -2959,8 +3171,14 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
           <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{displayName}</h2>
           <p className="text-neutral-500">{displayBrand}</p>
           <p className="mt-2 text-xs text-neutral-500">
-            {product.category?.name} • {reviewStatusLabel(product.verification)} • {dataQualityLabel(product.confidence)}
+            {product.category?.name} • {product.scoreConfidenceLabel || reviewStatusLabel(product.verification)} • {dataQualityLabel(product.confidence)}
           </p>
+          {isEstimatedScore && (
+            <button type="button" onClick={() => setShowPhotoSubmit(true)} className="mx-auto mt-4 block rounded-2xl bg-[#f7f3eb] px-4 py-3 text-left shadow-sm transition active:scale-[0.99]">
+              <span className="block text-sm font-semibold text-neutral-950">Help verify this product</span>
+              <span className="mt-1 block text-xs leading-5 text-neutral-500">Upload front, back, recycling label, and inside packaging photos.</span>
+            </button>
+          )}
         </div>
       </Card>
 
@@ -2988,7 +3206,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
                   <PartPackagingIcon part={part} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium text-neutral-950">{part.displayName}</div>
+                  <div className="font-medium text-neutral-950">{part.estimated ? `Likely ${part.displayName.toLowerCase()}` : part.displayName}</div>
                   <div className="text-sm text-neutral-500">{getPartMaterialLabel(part)}</div>
                   <div className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${part.severity.tone}`}>{part.severity.label}</div>
                 </div>
@@ -3092,8 +3310,15 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
       <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
         <h3 className="font-semibold text-neutral-950">Sources attached</h3>
         <div className="mt-3 space-y-2">
+          {product.scoringEvidence?.map((evidence) => (
+            <div key={`${evidence.source_type}-${evidence.source_label}`} className="rounded-2xl bg-[#f7f3eb] p-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">{evidence.source_type.replaceAll("_", " ")}</div>
+              <div className="mt-1 font-medium text-neutral-950">{evidence.source_label}</div>
+              <p className="mt-1 text-sm leading-5 text-neutral-500">{evidence.notes}</p>
+            </div>
+          ))}
           {product.sources.slice(0, 2).map((link) => <SourceCard key={link.source.id} link={link} />)}
-          {!product.sources.length && <p className="text-sm text-neutral-500">No source links attached yet.</p>}
+          {!product.sources.length && !product.scoringEvidence?.length && <p className="text-sm text-neutral-500">No source links attached yet.</p>}
         </div>
       </div>
 
@@ -3392,16 +3617,18 @@ export default function PlasticFreeScannerDatabasePrototype() {
     showToast("Submitted for review and added to History", 2200);
   };
 
-  const submitProductPhotoForReview = async (product, photo) => {
+  const submitProductPhotoForReview = async (product, photoPayload) => {
+    const photos = photoPayload?.dataUrl ? { front: photoPayload } : (photoPayload || {});
+    const frontPhoto = photos.front;
     const submissionProduct = {
       ...product,
       targetProductId: product.id,
       imageUrl: product.imageUrl || "",
       scoreStatus: "photo_review",
-      scoringNote: "User submitted a product photo for admin approval.",
+      scoringNote: photos.notes || "User submitted packaging evidence for admin approval.",
       submittedAt: new Date().toISOString(),
     };
-    const submission = { id: `photo_${product.id}_${Date.now()}`, product: submissionProduct, parts: [], photos: { front: photo } };
+    const submission = { id: `photo_${product.id}_${Date.now()}`, product: submissionProduct, parts: [], photos: { ...photos, front: frontPhoto } };
     setReviewSubmissions((current) => [submission, ...current.filter((item) => item.id !== submission.id)]);
     await saveBackendSubmission(submission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
