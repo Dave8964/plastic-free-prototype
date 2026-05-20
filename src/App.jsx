@@ -1443,7 +1443,7 @@ function ScoreRing({ score, onClick, delay = 0.15, featured = false, pending = f
 function ProductRow({ product, onClick }) {
   const displayName = isPendingPlaceholderText(product.name) ? "Product details needed" : product.name;
   const displayBrand = isPendingPlaceholderText(product.brand, "brand") ? "Pending review" : product.brand;
-  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={displayName} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{displayName}</span></div><div className="mt-0.5 text-sm text-neutral-500">{displayBrand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div></Card></FastTapButton>;
+  return <FastTapButton onActivate={onClick} className="w-full touch-manipulation text-left active:scale-[0.985]"><Card className="bg-white/78"><div className="flex items-center gap-3 p-3.5"><ProductImage src={product.imageUrl} alt={displayName} className="h-16 w-16 rounded-2xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="flex items-center gap-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-950"><span className="truncate">{displayName}</span></div><div className="mt-0.5 text-sm text-neutral-500">{displayBrand}</div><div className="mt-1 text-xs text-neutral-400">{product.category?.name}</div></div><div className="flex h-12 w-12 items-center justify-center rounded-full text-[16px] font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div></Card></FastTapButton>;
 }
 
 function normalizeBarcode(value = "") {
@@ -2445,7 +2445,7 @@ function ProductPhotoSubmissionSheet({ product, close, onSubmit }) {
 }
 
 function SocialProductPreview({ product, onClick }) {
-  return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></button>;
+  return <button type="button" onClick={onClick} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f7f3eb] p-3 text-left transition hover:bg-[#f1eadf] active:scale-[0.99]"><ProductImage src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-neutral-950">{product.name}</div><div className="text-xs text-neutral-500">{product.brand}</div></div><div className="flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-bold shadow-inner" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></button>;
 }
 
 function getProductSwapType(product) {
@@ -2509,7 +2509,7 @@ function getTrendingProducts(products) {
 }
 
 function CompactScoreCircle({ product, className = "" }) {
-  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-inner ${className}`} style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div>;
+  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12.5px] font-bold shadow-inner ${className}`} style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div>;
 }
 
 function SocialHighlightHeader({ title, copy }) {
@@ -2517,7 +2517,7 @@ function SocialHighlightHeader({ title, copy }) {
 }
 
 function TrendingProductChip({ product, onClick }) {
-  return <FastTapButton onActivate={onClick} className="w-[min(72vw,292px)] shrink-0 touch-manipulation text-left transition active:scale-[0.985]"><div className="overflow-hidden rounded-[1.7rem] bg-[#f7f3eb] shadow-sm ring-1 ring-black/[0.03]"><div className="relative h-40 bg-white/50"><ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full rounded-none object-cover" /><div className="absolute right-3 top-3 flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold shadow-[0_8px_18px_rgba(0,0,0,0.14)]" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div><div className="min-h-[128px] p-4"><div className="line-clamp-2 min-h-[40px] text-[19px] font-semibold leading-[1.05] tracking-[-0.04em] text-neutral-950">{product.name}</div><div className="mt-1 line-clamp-1 text-sm font-medium text-neutral-500">{product.brand}</div><div className="mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={getScoreBadgeStyle(product.theme)}>{product.rating}</div></div></div></FastTapButton>;
+  return <FastTapButton onActivate={onClick} className="w-[min(72vw,292px)] shrink-0 touch-manipulation text-left transition active:scale-[0.985]"><div className="overflow-hidden rounded-[1.7rem] bg-[#f7f3eb] shadow-sm ring-1 ring-black/[0.03]"><div className="relative h-40 bg-white/50"><ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full rounded-none object-cover" /><div className="absolute right-3 top-3 flex h-14 w-14 items-center justify-center rounded-full text-[16px] font-bold shadow-[0_8px_18px_rgba(0,0,0,0.14)]" style={getScoreBadgeStyle(product.theme)}>{getScoreDisplay(product)}</div></div><div className="min-h-[128px] p-4"><div className="line-clamp-2 min-h-[40px] text-[19px] font-semibold leading-[1.05] tracking-[-0.04em] text-neutral-950">{product.name}</div><div className="mt-1 line-clamp-1 text-sm font-medium text-neutral-500">{product.brand}</div><div className="mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={getScoreBadgeStyle(product.theme)}>{product.rating}</div></div></div></FastTapButton>;
 }
 
 function SwapProductTile({ product, label, tone, onClick }) {
@@ -2992,7 +2992,7 @@ function AdminReviewCard({ submission, onApprove, onNeedsInfo, onRejectDuplicate
             <h3 className="mt-1 line-clamp-2 text-lg font-semibold leading-tight text-neutral-950">{name || "Unnamed product"}</h3>
             <p className="text-sm text-neutral-500">{brand || "Brand missing"}</p>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f7f8] text-xs font-bold text-neutral-400 shadow-inner">{pending ? "TBD" : product.scoreOverride ?? "OK"}</div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f7f8] text-[14px] font-bold text-neutral-400 shadow-inner">{pending ? "TBD" : product.scoreOverride ?? "OK"}</div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-neutral-500">
