@@ -1993,7 +1993,7 @@ function ScoreBreakdownPanel({ product, close }) {
   );
 }
 
-function SearchScreen({ products, openResult, openAddProduct }) {
+function SearchScreen({ products, openResult, openAddProduct, onSearchAction }) {
   const [query, setQuery] = useState("");
   const [plasticFreeOnly, setPlasticFreeOnly] = useState(false);
   const [activeTags, setActiveTags] = useState([]);
@@ -2001,7 +2001,10 @@ function SearchScreen({ products, openResult, openAddProduct }) {
   const searchInputRef = useRef(null);
   const tags = ["Personal care", "Food", "Cleaning", "Sexual health", "Hidden plastic", "Available in Canada", "Microwave safe", "Feminine hygiene", "Baby", "Kitchen", "Clothing", "Teas", "Sunscreen"];
   const q = query.trim().toLowerCase();
-  const toggleTag = (tag) => setActiveTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
+  const toggleTag = (tag) => {
+    onSearchAction?.(`filter:${tag}`);
+    setActiveTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
+  };
   const filtered = products.filter((product) => {
     const matchesQuery = product.name.toLowerCase().includes(q) || product.brand.toLowerCase().includes(q) || product.category?.name.toLowerCase().includes(q);
     const passesPlasticFree = !plasticFreeOnly || (!product.scorePending && product.score >= 80);
@@ -2018,7 +2021,7 @@ function SearchScreen({ products, openResult, openAddProduct }) {
     return matchesQuery && passesPlasticFree && passesTags;
   });
   const focusSearch = () => searchInputRef.current?.focus();
-  return <div className="min-h-[690px] px-5 pb-4"><Header title="Search" /><div onClick={focusSearch} onTouchEnd={focusSearch} className="mb-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-sm"><Icon type="search" active={false} size={22} /><input ref={searchInputRef} value={query} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} placeholder="Search by product, brand or category" enterKeyHint="search" className="w-full bg-transparent text-base outline-none" /></div><div className="mb-4 flex gap-2 overflow-x-auto pb-1"><FastTapButton onActivate={() => { triggerHapticFeedback(); setPlasticFreeOnly(!plasticFreeOnly); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${plasticFreeOnly ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>Plastic-free only</FastTapButton>{tags.map((tag) => <FastTapButton key={tag} onActivate={() => { triggerHapticFeedback(); toggleTag(tag); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${activeTags.includes(tag) ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{tag}</FastTapButton>)}</div><div className="space-y-2">{filtered.length ? filtered.map((product, index) => <motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index, 3) * 0.025, duration: 0.16 }}><ProductRow product={product} onClick={() => openResult(product)} /></motion.div>) : <div className="mt-20 text-center"><div className="text-xl font-semibold text-neutral-950">No product found</div><p className="mt-2 text-sm text-neutral-500">Add photos and packaging notes to help verify it.</p><Button onClick={openAddProduct} className="mt-5">＋ Add product</Button></div>}</div></div>;
+  return <div className="min-h-[690px] px-5 pb-4"><Header title="Search" /><div onClick={focusSearch} onTouchEnd={focusSearch} className="mb-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-sm"><Icon type="search" active={false} size={22} /><input ref={searchInputRef} value={query} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} onChange={(event) => { setQuery(event.target.value); if (event.target.value.trim().length >= 2) onSearchAction?.(`query:${event.target.value.trim().toLowerCase()}`); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} placeholder="Search by product, brand or category" enterKeyHint="search" className="w-full bg-transparent text-base outline-none" /></div><div className="mb-4 flex gap-2 overflow-x-auto pb-1"><FastTapButton onActivate={() => { triggerHapticFeedback(); onSearchAction?.("filter:plastic-free"); setPlasticFreeOnly(!plasticFreeOnly); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${plasticFreeOnly ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>Plastic-free only</FastTapButton>{tags.map((tag) => <FastTapButton key={tag} onActivate={() => { triggerHapticFeedback(); toggleTag(tag); }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm shadow-sm transition active:scale-[0.98] ${activeTags.includes(tag) ? "bg-neutral-950 text-white" : "bg-white text-neutral-700"}`}>{tag}</FastTapButton>)}</div><div className="space-y-2">{filtered.length ? filtered.map((product, index) => <motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index, 3) * 0.025, duration: 0.16 }}><ProductRow product={product} onClick={() => openResult(product)} /></motion.div>) : <div className="mt-20 text-center"><div className="text-xl font-semibold text-neutral-950">No product found</div><p className="mt-2 text-sm text-neutral-500">Add photos and packaging notes to help verify it.</p><Button onClick={openAddProduct} className="mt-5">＋ Add product</Button></div>}</div></div>;
 }
 
 function MaterialLogoExampleMark({ mark }) {
@@ -3136,7 +3139,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
 }
 runTests();
 
-function ResultScreen({ product, products = [], close, openResult, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess, onSubmitProductPhoto }) {
+function ResultScreen({ product, products = [], close, openResult, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess, onSubmitProductPhoto, onScoreBreakdownOpen }) {
   const [useLocation, setUseLocation] = useState(false);
   const [selectedRecyclingLocation, setSelectedRecyclingLocation] = useState("toronto_on");
   const [locationStatus, setLocationStatus] = useState("idle");
@@ -3173,6 +3176,11 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
   }, [showImagePreview]);
 
   if (!product) return <UnknownScreen close={close} />;
+  const openScoreDetails = () => {
+    onScoreBreakdownOpen?.(product);
+    setShowScoreDetails(true);
+  };
+
   if (showScoreDetails && !product.scorePending) return <div className="min-h-full" {...swipeBackHandlers}><ScoreBreakdownPanel product={product} close={() => setShowScoreDetails(false)} /></div>;
 
   const isFavorite = favoriteIds.includes(product.id);
@@ -3328,7 +3336,7 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
           </button>
 
           <div className="mt-5 flex justify-center">
-            <ScoreRing score={product.score} onClick={product.scorePending ? undefined : () => setShowScoreDetails(true)} featured={isNearIdealScore} pending={product.scorePending} />
+            <ScoreRing score={product.score} onClick={product.scorePending ? undefined : openScoreDetails} featured={isNearIdealScore} pending={product.scorePending} />
           </div>
 
           <div className="mt-2 flex flex-col items-center gap-1">
@@ -3340,7 +3348,7 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
                 type="button"
                 onClick={() => {
                   triggerHapticFeedback();
-                  setShowScoreDetails(true);
+                  openScoreDetails();
                 }}
                 className="text-xs font-medium text-neutral-500 underline underline-offset-4"
               >
@@ -3558,6 +3566,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [addProductDraft, setAddProductDraft] = useState({});
   const [badgeToast, setBadgeToast] = useState(null);
   const toastTimeoutRef = useRef(null);
+  const badgeActionKeysRef = useRef(new Set());
   const contentScrollRef = useRef(null);
   const addProductSheetTouchRef = useRef({ y: 0, scrollTop: 0 });
   const addProductDragControls = useDragControls();
@@ -3640,6 +3649,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
     const favorited = !favoriteIds.includes(productId);
     const nextFavoriteIds = favorited ? [...favoriteIds, productId] : favoriteIds.filter((id) => id !== productId);
     setFavoriteIds(nextFavoriteIds);
+    if (favorited) {
+      const product = products.find((item) => item.id === productId);
+      awardBadge("community_voice", 1, `favorite:${productId}`);
+      if (product?.score >= 80) awardBadge("conscious_consumer", 1, `clean-favorite:${productId}`);
+      if (product?.score >= 70) awardBadge("eco_upgrade", 1, `upgrade-favorite:${productId}`);
+    }
     saveBackendFavorite(productId, favorited)
       .then((backendFavorites) => {
         setFavoriteIds(backendFavorites);
@@ -3668,6 +3683,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openResult = (product) => {
+    awardProductViewBadges(product);
     if (historyList && !showResult && !detail) {
       listScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
       shouldRestoreListScrollRef.current = true;
@@ -3790,6 +3806,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setReviewSubmissions((current) => current.some(samePendingProduct) ? current.map((item) => samePendingProduct(item) ? submission : item) : [submission, ...current]);
     setSubmittedProducts((current) => current.some(samePendingProduct) ? current.map((item) => samePendingProduct(item) ? product : item) : [product, ...current]);
     setSubmittedParts((current) => [...current.filter((part) => part.productId !== product.id), ...parts]);
+    awardBadge("community_voice", 1, `submit-product:${product.id}`);
     recordScan(product.id);
     saveBackendSubmission(submission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
@@ -3819,6 +3836,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     };
     const submission = { id: `photo_${product.id}_${Date.now()}`, product: submissionProduct, parts: [], photos: { ...photos, front: frontPhoto } };
     setReviewSubmissions((current) => [submission, ...current.filter((item) => item.id !== submission.id)]);
+    awardBadge("community_voice", 1, `submit-photo:${product.id}`);
     await saveBackendSubmission(submission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
       writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => item.id !== submission.id)]);
@@ -3832,6 +3850,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setReviewSubmissions((current) => current.map((item) => item.id === submission.id ? updatedSubmission : item));
     setSubmittedProducts((current) => current.some((item) => item.id === updatedProduct.id) ? current.map((item) => item.id === updatedProduct.id ? updatedProduct : item) : [updatedProduct, ...current]);
     setSubmittedParts((current) => [...current.filter((part) => part.productId !== updatedProduct.id), ...updatedSubmission.parts]);
+    awardBadge("plastic_pro", 1, `review:${updatedProduct.id}:${updatedProduct.scoreStatus || "reviewed"}`);
     saveBackendSubmission(updatedSubmission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
       writeLocalJson(LOCAL_SUBMISSIONS_KEY, [updatedSubmission, ...localSubmissions.filter((item) => item.id !== updatedSubmission.id)]);
@@ -3899,6 +3918,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openPartDetail = (product, part) => {
+    awardBadge("deep_diver", 1, `part-detail:${product?.id}:${part?.id}`);
+    if (part?.plastic?.code && part.plastic.code !== "NONE") awardBadge("microplastic_hunter", 1, `part-plastic:${product?.id}:${part?.id}`);
     productScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreProductScrollRef.current = false;
     setDetail({ product, part });
@@ -3910,6 +3931,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openPlasticListEvidence = (product) => {
+    awardBadge("ingredient_inspector", 1, `plasticlist:${product?.id}`);
+    awardBadge("deep_diver", 1, `lab-evidence:${product?.id}`);
     productScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreProductScrollRef.current = false;
     setPlasticListDetail({ product });
@@ -3946,6 +3969,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
       if (previousStatus.currentTier !== newStatus.currentTier) {
         setHighlightBadge(id);
         setTimeout(() => setHighlightBadge(null), 1200);
+        showToast(`${badge.name} ${newStatus.currentTier} unlocked`, 3200);
       }
       return updatedBadge;
     }));
@@ -3958,8 +3982,32 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const showShareBadgeToast = () => {
-    incrementBadge("word_of_mouth", 1);
-    showToast("+1 toward Word of Mouth (3/3)", 3000);
+    const unlocked = awardBadge("word_of_mouth", 1, `share:${shareProduct?.id || Date.now()}`);
+    if (!unlocked) showToast("+1 toward Word of Mouth", 2200);
+  };
+
+  const awardBadge = (id, amount = 1, actionKey = "") => {
+    const key = actionKey || `${id}:${Date.now()}`;
+    if (badgeActionKeysRef.current.has(`${id}:${key}`)) return false;
+    const badge = badgeProgress.find((item) => item.id === id);
+    const didUnlock = badge ? getBadgeStatus(badge).currentTier !== getBadgeStatus({ ...badge, progress: badge.progress + amount }).currentTier : false;
+    badgeActionKeysRef.current.add(`${id}:${key}`);
+    incrementBadge(id, amount);
+    return didUnlock;
+  };
+
+  const awardProductViewBadges = (product) => {
+    if (!product?.id) return false;
+    const unlocks = [];
+    unlocks.push(awardBadge("deep_diver", 1, `view:${product.id}`));
+    if ((product.parts || []).some((part) => part.plastic?.code && part.plastic.code !== "NONE")) unlocks.push(awardBadge("microplastic_hunter", 1, `plastic:${product.id}`));
+    if (!product.scorePending && product.score <= 39) unlocks.push(awardBadge("red_flag_radar", 1, `risk:${product.id}`));
+    if (!product.scorePending && product.score >= 80) unlocks.push(awardBadge("conscious_consumer", 1, `clean-view:${product.id}`));
+    return unlocks.some(Boolean);
+  };
+
+  const awardSearchBadge = (key) => {
+    awardBadge("data_driven", 1, key);
   };
 
   const getNextBadgeProgressText = (id, amount = 1) => {
@@ -4040,9 +4088,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (!product?.id) return;
     if (hasRecordedScanForProduct(product)) return;
     const plasticDetectiveProgress = getNextBadgeProgressText("plastic_detective");
-    incrementBadge("plastic_detective", 1);
-    incrementBadge("barcode_whisperer", 1);
-    showToast(`Scan recorded • Plastic Detective ${plasticDetectiveProgress}`, 2400);
+    const scanUnlocked = awardBadge("plastic_detective", 1, `scan:${product.id}`);
+    const barcodeUnlocked = awardBadge("barcode_whisperer", 1, `barcode:${product.barcode || product.id}`);
+    const productViewUnlocked = awardProductViewBadges(product);
+    if (!scanUnlocked && !barcodeUnlocked && !productViewUnlocked) showToast(`Scan recorded • Plastic Detective ${plasticDetectiveProgress}`, 2400);
     recordScan(product.id);
   };
 
@@ -4235,12 +4284,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showResult ? (
   <motion.div key={`result-${result?.id || "unknown"}`} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
-    <ResultScreen product={result} products={products} close={closeResult} openResult={openResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
+    <ResultScreen product={result} products={products} close={closeResult} openResult={openResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} onScoreBreakdownOpen={(product) => { awardBadge("ingredient_inspector", 1, `score-breakdown:${product?.id}`); awardBadge("deep_diver", 1, `score-detail:${product?.id}`); awardBadge("plastic_pro", 1, `score-system:${product?.id}`); }} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "history" ? "history" : tab === "search" ? "search" : tab === "social" ? "social" : tab === "profile" ? "profile" : "top", definition)}>
     {tab === "scan" && <ScanScreen products={products} openResult={handleScan} openAddProduct={openAddProduct} onProductScanned={handleProductScanned} />}
-    {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} />}
+    {tab === "search" && <SearchScreen products={products} openResult={openResult} openAddProduct={() => openAddProduct()} onSearchAction={awardSearchBadge} />}
     {tab === "history" && <HistoryScreen products={products} scans={scanHistory} openResult={openResult} openScanned={() => openHomeHistoryList({ title: "Products scanned", products: scannedProducts })} openSearched={() => openHomeHistoryList({ title: "Products searched", products: searchedProducts })} />}
     {tab === "social" && <SocialScreen products={products} openResult={openResult} openNotifications={() => { setUnreadNotifications(0); setShowNotifications(true); }} openUserProfile={openSocialUserProfile} savedProductIds={favoriteIds} toggleFavorite={toggleFavorite} unreadNotifications={unreadNotifications} />}
     {tab === "profile" && <ProfileScreen products={products} badges={badgeProgress} highlightBadge={highlightBadge} openResult={openResult} openSettings={() => setShowSettings(true)} openFavorites={openFavoritesFromProfile} openBadges={openBadgesFromProfile} openBadge={openBadgeFromProfile} openPlans={openPlansFromProfile} openAdminReview={openAdminReview} pendingReviewCount={pendingReviewCount} profile={profile} updateProfile={updateProfile} favoriteIds={favoriteIds} scanCount={scannedProducts.length} followingCount={followingUsers.length} followersCount={followerUsers.length} openScans={() => setHistoryList({ title: "Your scans", products: scannedProducts })} openFollowing={() => setPeopleList({ title: "Following", users: followingUsers })} openFollowers={() => setPeopleList({ title: "Followers", users: followerUsers })} localeCopy={localeCopy} />}
