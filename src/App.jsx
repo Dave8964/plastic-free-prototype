@@ -4095,7 +4095,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (!product?.id) return false;
     const unlocks = [];
     if ((product.parts || []).some((part) => part.plastic?.code && part.plastic.code !== "NONE")) unlocks.push(awardBadge("microplastic_hunter", 1, `plastic:${product.id}`));
-    if (!product.scorePending && product.score <= 39) unlocks.push(awardBadge("red_flag_radar", 1, `risk:${product.id}`));
+    if (!product.scorePending && product.score <= 30) unlocks.push(awardBadge("red_flag_radar", 1, `risk:${product.id}`));
     if (!product.scorePending && product.score >= 80) unlocks.push(awardBadge("conscious_consumer", 1, `clean-view:${product.id}`));
     return unlocks.some(Boolean);
   };
