@@ -3953,7 +3953,6 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const openPartDetail = (product, part) => {
     awardBadge("deep_diver", 1, `part-detail:${product?.id}:${part?.id}`);
-    if (part?.plastic?.code && part.plastic.code !== "NONE") awardBadge("microplastic_hunter", 1, `part-plastic:${product?.id}:${part?.id}`);
     productScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreProductScrollRef.current = false;
     setDetail({ product, part });
