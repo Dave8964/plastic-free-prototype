@@ -125,6 +125,8 @@ const db = {
     { id: "unknown_plastic", code: "UNKNOWN", name: "Unknown plastic", recyclability: "unknown", municipal: { Toronto: "unknown", Vancouver: "unknown", Peel: "unknown" } },
     { id: "latex_rubber", code: "LATEX", name: "Standard rubber latex", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
     { id: "synthetic_condom", code: "SYNTHETIC", name: "Polyurethane / polyisoprene / nitrile", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
+    { id: "synthetic_gum_base", code: "GUM-BASE", name: "Synthetic gum base polymers", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
+    { id: "natural_gum_base", code: "NATURAL-GUM", name: "Natural gum base polymers", recyclability: "none", municipal: { Toronto: "none", Vancouver: "none", Peel: "none" } },
     { id: "none", code: "NONE", name: "No plastic detected", recyclability: "not_applicable", municipal: { Toronto: "not_applicable", Vancouver: "not_applicable", Peel: "not_applicable" } },
   ],
   materials: [
@@ -135,6 +137,8 @@ const db = {
     { id: "mixed", name: "Mixed multilayer material", recyclability: "limited" },
     { id: "rubber_latex", name: "Rubber latex", recyclability: "none" },
     { id: "synthetic_condom_material", name: "Synthetic non-latex material", recyclability: "none" },
+    { id: "synthetic_gum_base_material", name: "Synthetic gum base", recyclability: "none" },
+    { id: "natural_gum_base_material", name: "Natural gum base", recyclability: "none" },
     { id: "natural_membrane", name: "Natural membrane", recyclability: "not_applicable" },
     { id: "liner_epoxy_bpa", name: "BPA epoxy can liner", recyclability: "limited", linerRisk: "high", linerImpact: -22, linerLabel: "BPA epoxy liner", linerSummary: "Older or some imported cans may use BPA-based epoxy. Treat as higher concern, especially with food contact." },
     { id: "liner_pvc", name: "PVC / vinyl organosol can liner", recyclability: "limited", linerRisk: "high", linerImpact: -22, linerLabel: "PVC/vinyl liner", linerSummary: "PVC and vinyl organosol liners can raise chemical migration concerns and should score aggressively." },
@@ -154,6 +158,7 @@ const db = {
     { id: "prolonged_skin", name: "Prolonged skin contact", penalty: -20, summary: "Extended skin exposure increases absorption risk." },
     { id: "sti_limitation", name: "STI protection limitation", penalty: -10, summary: "Natural membrane condoms can reduce pregnancy risk, but are not recommended for HIV/STI prevention because small pores can allow viruses through." },
     { id: "reuse", name: "Repeated use or friction", penalty: -10, summary: "Repeated use increases microplastic shedding." },
+    { id: "chewed_ingestion", name: "Chewed ingestion contact", penalty: -25, summary: "The product is chewed directly, so released particles can move into saliva and be swallowed." },
     { id: "internal", name: "Internal plastic packaging", penalty: -18, summary: "Hidden plastics often go unnoticed but increase exposure." },
     { id: "hot_food", name: "Hot food contact", penalty: -30, summary: "The food itself is hot while touching plastic or a can liner, which is a higher-contact exposure scenario." },
     { id: "recycled_plastic", name: "Recycled plastic", penalty: -20, summary: "Recycled plastics may contain contaminants like flame retardants." },
@@ -167,6 +172,7 @@ const db = {
     { id: "source_canned_soup_bpa", title: "Canned Soup Consumption and Urinary Bisphenol A", organization: "PubMed Central / JAMA", credibility: "High", summary: "A randomized crossover study found substantially higher urinary BPA after participants consumed canned soup daily compared with fresh soup, supporting added caution for heated liquid foods in lined cans." },
     { id: "source_plasticlist", title: "Data on Plastic Chemicals in Bay Area Foods", organization: "PlasticList", credibility: "High", summary: "PlasticList tested Bay Area food samples for plastic-related chemicals including phthalates and bisphenols. Results are sample-based and may vary by batch, location, and date.", license: "CC BY 4.0", url: "https://www.plasticlist.org/", accessDate: "Jan 09, 2025" },
     { id: "source_cdc_condoms", title: "Condom Use and HIV/STI Prevention", organization: "CDC", credibility: "High", summary: "CDC guidance supports latex condoms for HIV prevention, notes synthetic non-latex options for people with latex allergies, and warns that natural membrane condoms are not recommended for HIV/STI prevention." },
+    { id: "source_ucla_gum_microplastics", title: "Chewing gum releases microplastics into your saliva", organization: "UCLA Newsroom", credibility: "High", summary: "UCLA researchers reported a pilot study presented at ACS Spring 2025 showing that chewing gum can release microplastics into saliva, with exposure possible from both synthetic and natural gum products.", url: "https://newsroom.ucla.edu/releases/bursting-your-bubble-chewing-gum-releases-microplastics-into-your-saliva-ucla-research-shows", accessDate: "May 20, 2026" },
   ],
   products: [
     { id: "old_spice", name: "Pure Sport Deodorant", brand: "Old Spice", categoryId: "cat_personal", imageUrl: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Medium", verification: "inferred" },
@@ -181,6 +187,12 @@ const db = {
     { id: "safechoice_latex_condoms", name: "Classic Latex Condoms", brand: "SafeChoice", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Low", verification: "inferred", scoreOverride: 18, scoringNote: "Fake starter product. Latex is modeled as the plastic-exposure baseline for this category, while still being a standard STI-prevention material." },
     { id: "clearfit_nonlatex_condoms", name: "Non-Latex Condoms", brand: "ClearFit", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 46, scoringNote: "Fake starter product. Synthetic non-latex materials are modeled as a better option for latex allergies and lower concern than standard latex in this app's plastic-exposure rubric." },
     { id: "heritage_natural_skin_condoms", name: "Natural Skin Condoms", brand: "Heritage", categoryId: "cat_sexual_health", productType: "condom", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 84, scoringNote: "Fake starter product. Scores best for plastic exposure, but natural membrane condoms are not recommended for HIV/STI prevention." },
+    { id: "chapstick_classic", name: "Classic Original Lip Balm", brand: "ChapStick", categoryId: "cat_personal", productType: "lip_balm", imageUrl: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Low", verification: "inferred", scoreOverride: 30, scoringNote: "Modeled as a plastic twist tube and cap with repeated lip-contact use. Better options would use paperboard tubes, metal tins, or refillable packaging." },
+    { id: "burts_bees_lip_balm", name: "Beeswax Lip Balm", brand: "Burt's Bees", categoryId: "cat_personal", productType: "lip_balm", imageUrl: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 36, scoringNote: "Modeled as a plastic lip balm tube with outer paperboard. The product is direct lip contact, so packaging and applicator material matter." },
+    { id: "banana_boat_sunscreen", name: "Sport Sunscreen SPF 50", brand: "Banana Boat", categoryId: "cat_personal", productType: "sunscreen", imageUrl: "https://images.unsplash.com/photo-1521223344201-d169129f7b8d?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Low", verification: "inferred", scoreOverride: 31, scoringNote: "Modeled as sunscreen in a plastic squeeze bottle. Sunscreen is a repeated skin-contact product that may be stored warm outdoors." },
+    { id: "thinkbaby_sunscreen", name: "Mineral Sunscreen SPF 50", brand: "Thinkbaby", categoryId: "cat_personal", productType: "sunscreen", imageUrl: "https://images.unsplash.com/photo-1521223344201-d169129f7b8d?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Low", verification: "inferred", scoreOverride: 38, scoringNote: "Modeled as a mineral sunscreen in a plastic tube. Still a plastic skin-contact package, but scored slightly better than plastic-heavy spray or squeeze formats." },
+    { id: "extra_spearmint_gum", name: "Spearmint Gum", brand: "Extra", categoryId: "cat_food_drink", productType: "chewing_gum", imageUrl: "https://images.unsplash.com/photo-1600423115367-87ea7661688f?q=80&w=800&auto=format&fit=crop", country: "CA", confidence: "Medium", verification: "inferred", scoreOverride: 12, scoringNote: "Chewing gum is modeled as high concern because the gum base can contain synthetic polymers and is chewed directly. UCLA researchers reported microplastics can be released into saliva during chewing." },
+    { id: "simply_gum_peppermint", name: "Peppermint Gum", brand: "Simply Gum", categoryId: "cat_food_drink", productType: "chewing_gum", imageUrl: "https://images.unsplash.com/photo-1600423115367-87ea7661688f?q=80&w=800&auto=format&fit=crop", country: "US", confidence: "Medium", verification: "inferred", scoreOverride: 22, scoringNote: "Modeled as a natural gum-base product. It scores better than conventional synthetic gum, but UCLA's pilot work suggests both natural and synthetic gums can release microplastics into saliva." },
     ...normalizedPlasticListProducts,
   ],
   productParts: [
@@ -210,6 +222,18 @@ const db = {
     { id: "heritage_natural_membrane_condom", productId: "heritage_natural_skin_condoms", partType: "product_component", displayName: "Natural membrane condom", materialId: "natural_membrane", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Natural skin or lambskin-style membrane. Lower plastic exposure, but not recommended for HIV/STI prevention because small pores can allow viruses through." },
     { id: "heritage_condom_box", productId: "heritage_natural_skin_condoms", partType: "outer_packaging", displayName: "Paper box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Outer cardboard box. Recycle only if clean and accepted locally." },
     { id: "heritage_condom_wrapper", productId: "heritage_natural_skin_condoms", partType: "inner_packaging", displayName: "Foil wrapper", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -4, materialImpact: -6, notes: "Individual condom wrapper is usually a foil/plastic laminate and is not the same as the condom itself." },
+    { id: "chapstick_tube", productId: "chapstick_classic", partType: "main_container", displayName: "Twist tube", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -12, materialImpact: -6, notes: "Conventional lip balm tubes are usually plastic twist applicators used directly on lips." },
+    { id: "chapstick_cap", productId: "chapstick_classic", partType: "cap_lid", displayName: "Cap", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -6, materialImpact: -5, notes: "Likely plastic cap." },
+    { id: "burts_lip_tube", productId: "burts_bees_lip_balm", partType: "main_container", displayName: "Lip balm tube", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -10, materialImpact: -6, notes: "Likely plastic twist tube in repeated lip contact." },
+    { id: "burts_lip_box", productId: "burts_bees_lip_balm", partType: "outer_packaging", displayName: "Paperboard box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Outer paperboard packaging is lower concern than plastic blister packaging." },
+    { id: "banana_sunscreen_bottle", productId: "banana_boat_sunscreen", partType: "main_container", displayName: "Squeeze bottle", materialId: "plastic", plasticTypeId: "hdpe2", baseImpact: -12, materialImpact: -6, notes: "Common sunscreen bottle format, likely HDPE or similar plastic." },
+    { id: "banana_sunscreen_cap", productId: "banana_boat_sunscreen", partType: "cap_lid", displayName: "Flip cap", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -6, materialImpact: -5, notes: "Likely polypropylene cap." },
+    { id: "thinkbaby_sunscreen_tube", productId: "thinkbaby_sunscreen", partType: "main_container", displayName: "Plastic tube", materialId: "plastic", plasticTypeId: "unknown_plastic", baseImpact: -12, materialImpact: -8, notes: "Likely flexible plastic tube in repeated skin-product use." },
+    { id: "thinkbaby_sunscreen_cap", productId: "thinkbaby_sunscreen", partType: "cap_lid", displayName: "Cap", materialId: "plastic", plasticTypeId: "pp5", baseImpact: -5, materialImpact: -5, notes: "Likely plastic cap." },
+    { id: "extra_gum_base", productId: "extra_spearmint_gum", partType: "product_component", displayName: "Synthetic gum base", materialId: "synthetic_gum_base_material", plasticTypeId: "synthetic_gum_base", baseImpact: -24, materialImpact: -20, notes: "Conventional gum base can include synthetic polymers. UCLA researchers reported gum can release microplastics into saliva during chewing." },
+    { id: "extra_gum_wrappers", productId: "extra_spearmint_gum", partType: "inner_packaging", displayName: "Individual wrappers", materialId: "mixed", plasticTypeId: "unknown_plastic", baseImpact: -6, materialImpact: -8, notes: "Gum pieces are often wrapped in paper/foil/plastic laminate packaging." },
+    { id: "simply_gum_base", productId: "simply_gum_peppermint", partType: "product_component", displayName: "Natural gum base", materialId: "natural_gum_base_material", plasticTypeId: "natural_gum_base", baseImpact: -15, materialImpact: -14, notes: "Natural gum base is modeled as better than synthetic gum base, but UCLA's pilot study suggests natural gums can also release microplastics during chewing." },
+    { id: "simply_gum_box", productId: "simply_gum_peppermint", partType: "outer_packaging", displayName: "Paperboard box", materialId: "paper", plasticTypeId: "none", baseImpact: 0, materialImpact: 0, notes: "Outer paperboard box is lower concern than plastic-heavy packaging." },
     ...plasticListProductParts,
   ],
   productContexts: [
@@ -235,6 +259,20 @@ const db = {
     { id: "ctx_safechoice_skin", productId: "safechoice_latex_condoms", partId: "safechoice_latex_condom", contextId: "prolonged_skin" },
     { id: "ctx_clearfit_skin", productId: "clearfit_nonlatex_condoms", partId: "clearfit_synthetic_condom", contextId: "prolonged_skin" },
     { id: "ctx_heritage_sti", productId: "heritage_natural_skin_condoms", partId: "heritage_natural_membrane_condom", contextId: "sti_limitation" },
+    { id: "ctx_chapstick_skin", productId: "chapstick_classic", partId: "chapstick_tube", contextId: "prolonged_skin" },
+    { id: "ctx_chapstick_reuse", productId: "chapstick_classic", partId: "chapstick_tube", contextId: "reuse" },
+    { id: "ctx_burts_skin", productId: "burts_bees_lip_balm", partId: "burts_lip_tube", contextId: "prolonged_skin" },
+    { id: "ctx_burts_reuse", productId: "burts_bees_lip_balm", partId: "burts_lip_tube", contextId: "reuse" },
+    { id: "ctx_banana_skin", productId: "banana_boat_sunscreen", partId: "banana_sunscreen_bottle", contextId: "prolonged_skin" },
+    { id: "ctx_banana_heat", productId: "banana_boat_sunscreen", partId: "banana_sunscreen_bottle", contextId: "heat_sensitive" },
+    { id: "ctx_thinkbaby_skin", productId: "thinkbaby_sunscreen", partId: "thinkbaby_sunscreen_tube", contextId: "prolonged_skin" },
+    { id: "ctx_thinkbaby_heat", productId: "thinkbaby_sunscreen", partId: "thinkbaby_sunscreen_tube", contextId: "heat_sensitive" },
+    { id: "ctx_extra_gum_food", productId: "extra_spearmint_gum", partId: "extra_gum_base", contextId: "food_contact" },
+    { id: "ctx_extra_gum_chewed", productId: "extra_spearmint_gum", partId: "extra_gum_base", contextId: "chewed_ingestion" },
+    { id: "ctx_extra_gum_reuse", productId: "extra_spearmint_gum", partId: "extra_gum_base", contextId: "reuse" },
+    { id: "ctx_simply_gum_food", productId: "simply_gum_peppermint", partId: "simply_gum_base", contextId: "food_contact" },
+    { id: "ctx_simply_gum_chewed", productId: "simply_gum_peppermint", partId: "simply_gum_base", contextId: "chewed_ingestion" },
+    { id: "ctx_simply_gum_reuse", productId: "simply_gum_peppermint", partId: "simply_gum_base", contextId: "reuse" },
     ...plasticListProductContexts,
   ],
   sourceLinks: [
@@ -251,6 +289,9 @@ const db = {
     { sourceId: "source_cdc_condoms", entityType: "part", entityId: "clearfit_condom_wrapper" },
     { sourceId: "source_cdc_condoms", entityType: "part", entityId: "heritage_condom_wrapper" },
     { sourceId: "source_cdc_condoms", entityType: "context", entityId: "sti_limitation" },
+    { sourceId: "source_ucla_gum_microplastics", entityType: "part", entityId: "extra_gum_base" },
+    { sourceId: "source_ucla_gum_microplastics", entityType: "part", entityId: "simply_gum_base" },
+    { sourceId: "source_ucla_gum_microplastics", entityType: "context", entityId: "chewed_ingestion" },
   ],
   plasticListEvidence,
   users: [
@@ -2454,6 +2495,9 @@ function getProductSwapType(product) {
   if (text.includes("subway") || text.includes("sandwich") || text.includes("sub ")) return "prepared_sandwich";
   if (text.includes("dishwasher") && (text.includes("detergent") || text.includes("tablet") || text.includes("pod"))) return "dishwasher_detergent";
   if (text.includes("bar soap") || text.includes("handwash") || text.includes("hand wash")) return "soap";
+  if (text.includes("lip balm") || text.includes("chapstick") || text.includes("chap stick")) return "lip_balm";
+  if (text.includes("sunscreen") || text.includes("spf")) return "sunscreen";
+  if (text.includes("gum")) return "chewing_gum";
   if (text.includes("tuna")) return "canned_tuna";
   if (text.includes("tomato paste")) return "tomato_paste";
   if (text.includes("tea")) return "tea";
