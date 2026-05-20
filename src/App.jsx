@@ -3614,6 +3614,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const shouldRestoreProfileScrollRef = useRef(false);
   const listScrollTopRef = useRef(0);
   const shouldRestoreListScrollRef = useRef(false);
+  const badgesScrollTopRef = useRef(0);
+  const shouldRestoreBadgesScrollRef = useRef(false);
   const activeScrollSurfaceRef = useRef("");
   const [badgeProgress, setBadgeProgress] = useState(badgeDefinitions);
   const [highlightBadge, setHighlightBadge] = useState(null);
@@ -4087,6 +4089,12 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setBadgeDetail(badge);
   };
 
+  const openBadgeFromBadgesList = (badge) => {
+    badgesScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
+    shouldRestoreBadgesScrollRef.current = true;
+    setBadgeDetail(badge);
+  };
+
   const openHomeHistoryList = (list) => {
     homeScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreHomeScrollRef.current = true;
@@ -4184,6 +4192,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
       return;
     }
     if (badgeDetail) {
+      if (showBadges) shouldRestoreBadgesScrollRef.current = true;
       setBadgeDetail(null);
       return;
     }
@@ -4233,6 +4242,11 @@ export default function PlasticFreeScannerDatabasePrototype() {
     if (screen === "history-list" && shouldRestoreListScrollRef.current) {
       contentScrollRef.current?.scrollTo({ top: listScrollTopRef.current, left: 0, behavior: "auto" });
       shouldRestoreListScrollRef.current = false;
+      return;
+    }
+    if (screen === "badges" && shouldRestoreBadgesScrollRef.current) {
+      contentScrollRef.current?.scrollTo({ top: badgesScrollTopRef.current, left: 0, behavior: "auto" });
+      shouldRestoreBadgesScrollRef.current = false;
       return;
     }
     if (screen === "social" && shouldRestoreSocialScrollRef.current) {
@@ -4299,15 +4313,15 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : badgeDetail ? (
   <motion.div key="badge-detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <BadgeDetailScreen badge={badgeDetail} close={() => setBadgeDetail(null)} />
+    <BadgeDetailScreen badge={badgeDetail} close={() => { if (showBadges) shouldRestoreBadgesScrollRef.current = true; setBadgeDetail(null); }} />
   </motion.div>
 ) : showDeleteAccount ? (
   <motion.div key="delete" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
     <DeleteAccountScreen close={() => setShowDeleteAccount(false)} onConfirmDelete={confirmDeleteAccount} />
   </motion.div>
 ) : showBadges ? (
-  <motion.div key="badges" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
-    <BadgesScreen badges={badgeProgress} highlightBadge={highlightBadge} close={() => setShowBadges(false)} openBadge={(badge) => setBadgeDetail(badge)} />
+  <motion.div key="badges" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("badges", definition)}>
+    <BadgesScreen badges={badgeProgress} highlightBadge={highlightBadge} close={() => setShowBadges(false)} openBadge={openBadgeFromBadgesList} />
   </motion.div>
 ) : showFavorites ? (
   <motion.div key="favorites" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={pageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("top", definition)}>
