@@ -2488,6 +2488,40 @@ function getBetterSwapForProduct(products, product) {
   return swapTo ? { from: product, to: swapTo } : null;
 }
 
+function getGenericAlternativesForProduct(product) {
+  const type = getProductSwapType(product);
+  const text = `${product?.brand || ""} ${product?.name || ""}`.toLowerCase();
+  if (type === "dishwasher_detergent") {
+    return [
+      "Look for loose dishwasher powder in a cardboard box.",
+      "Choose tablets without individual dissolvable film when possible.",
+      "Avoid pods with internal PVA/PVOH film if a powder option works for you."
+    ];
+  }
+  if (type === "canned_tuna") {
+    return [
+      "Look for brands that clearly state BPA-free or non-BPA can liners.",
+      "Choose recyclable metal cans with liner claims shown on the label.",
+      "Avoid pouches when a clearly labeled metal can is available."
+    ];
+  }
+  if (type === "tea" || text.includes("juice") || text.includes("apple")) {
+    return [
+      "Look for juice in glass bottles or jars.",
+      "Choose larger glass formats when available to reduce plastic cap-to-product ratio.",
+      "Avoid plastic bottles and multilayer cartons when a glass option is nearby."
+    ];
+  }
+  if (type === "water") {
+    return [
+      "Use filtered tap water in a reusable stainless steel or glass bottle.",
+      "Choose glass bottled water only when refillable options are not practical.",
+      "Avoid single-use PET bottles, especially if they may sit warm during storage."
+    ];
+  }
+  return product?.alternatives || [];
+}
+
 function getTrendingProducts(products) {
   const ids = [
     "paper_soap",
@@ -2528,6 +2562,12 @@ function SwapProductTile({ product, label, tone, onClick }) {
 function BetterSwapHighlight({ swapFrom, swapTo, openResult, onSwapView }) {
   if (!swapFrom || !swapTo) return null;
   return <Card><div className="p-4"><SocialHighlightHeader title="Better swap spotted" copy="Same product type, cleaner-rated option" /><div className="space-y-2"><SwapProductTile product={swapFrom} label="From" tone="from" onClick={() => openResult(swapFrom)} /><div className="flex h-5 items-center justify-center text-lg font-semibold text-neutral-400">↓</div><SwapProductTile product={swapTo} label="To" tone="better" onClick={() => { onSwapView?.(swapFrom, swapTo); openResult(swapTo); }} /></div></div></Card>;
+}
+
+function GenericAlternativeHighlight({ product }) {
+  const suggestions = getGenericAlternativesForProduct(product).filter(Boolean).slice(0, 3);
+  if (!suggestions.length) return null;
+  return <Card><div className="p-4"><SocialHighlightHeader title="Better alternative" copy="What to look for if no rated swap is available" /><div className="space-y-2">{suggestions.map((item) => <div key={item} className="rounded-2xl bg-[#f7f3eb] p-3 text-sm leading-5 text-neutral-700">{item}</div>)}</div></div></Card>;
 }
 
 function SocialScreen({ products, openResult, openNotifications, openUserProfile, savedProductIds = [], toggleFavorite, unreadNotifications = 0 }) {
@@ -3513,7 +3553,9 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
 
       <PlasticListEvidenceSummary evidence={product.plasticListEvidence} onOpen={() => openPlasticListEvidence(product)} />
 
-      {productSwap && <div className="mt-5"><BetterSwapHighlight swapFrom={productSwap.from} swapTo={productSwap.to} openResult={openResult} onSwapView={onBetterSwapOpen} /></div>}
+      <div className="mt-5">
+        {productSwap ? <BetterSwapHighlight swapFrom={productSwap.from} swapTo={productSwap.to} openResult={openResult} onSwapView={onBetterSwapOpen} /> : <GenericAlternativeHighlight product={product} />}
+      </div>
 
       <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-start justify-between gap-4">
