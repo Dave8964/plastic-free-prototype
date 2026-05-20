@@ -3959,6 +3959,14 @@ export default function PlasticFreeScannerDatabasePrototype() {
     showToast("+1 toward Word of Mouth (3/3)", 3000);
   };
 
+  const getNextBadgeProgressText = (id, amount = 1) => {
+    const badge = badgeProgress.find((item) => item.id === id);
+    if (!badge) return "";
+    const updatedBadge = { ...badge, progress: badge.progress + amount };
+    const status = getBadgeStatus(updatedBadge);
+    return badge.isPercent ? `${status.displayProgress}%` : `${status.displayProgress} / ${status.nextThreshold}`;
+  };
+
   const openPlansFromProfile = () => {
     profileScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreProfileScrollRef.current = true;
@@ -4015,8 +4023,10 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const handleProductScanned = (product) => {
     if (!product?.id) return;
+    const plasticDetectiveProgress = getNextBadgeProgressText("plastic_detective");
     incrementBadge("plastic_detective", 1);
-    showToast("+1 scan recorded", 1800);
+    incrementBadge("barcode_whisperer", 1);
+    showToast(`Scan recorded • Plastic Detective ${plasticDetectiveProgress}`, 2400);
     recordScan(product.id);
   };
 
