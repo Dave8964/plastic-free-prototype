@@ -485,6 +485,22 @@ function createScoringEvidence(sourceType, sourceLabel, contribution, notes) {
   return { source_type: sourceType, source_label: sourceLabel, confidence_contribution: contribution, notes };
 }
 
+function isVisibleAttachedSource(link = {}) {
+  const sourceId = `${link.sourceId || link.source?.id || ""}`.toLowerCase();
+  const entityType = `${link.entityType || ""}`.toLowerCase();
+  const organization = `${link.source?.organization || ""}`.toLowerCase();
+  const title = `${link.source?.title || ""}`.toLowerCase();
+  if (entityType === "category_template" || sourceId.startsWith("template_")) return false;
+  if (sourceId.includes("plasticlist") || entityType === "plasticlist" || organization.includes("plasticlist")) return true;
+  if (sourceId.includes("pubmed") || organization.includes("pubmed") || title.includes("pubmed")) return true;
+  if (entityType.includes("brand") || sourceId.includes("brand")) return true;
+  return Boolean(link.source?.url);
+}
+
+function isVisibleScoringEvidence(evidence = {}) {
+  return ["brand_confirmation", "brand_page"].includes(evidence.source_type);
+}
+
 function getProductSearchText(product = {}, category = null) {
   return [
     product.name,
@@ -1099,7 +1115,6 @@ function hydrateProduct(product, extraParts = []) {
   ];
   const dynamicSources = [
     ...(hasHighRiskCanScenario ? [{ sourceId: "source_canned_soup_bpa", source: getById("sources", "source_canned_soup_bpa"), entityType: "dynamic", entityId: product.id }] : []),
-    ...(packagingTemplate ? [{ sourceId: `template_${packagingTemplate.id}`, source: { id: `template_${packagingTemplate.id}`, title: "Based on category template", organization: "PlasticFree scoring model", credibility: "Estimated", summary: `${packagingTemplate.explanation} Upload packaging photos to verify.` }, entityType: "category_template", entityId: product.id }] : []),
   ];
   const evidenceSources = plasticListEvidence.map((item) => ({ sourceId: item.sourceId, source: item.source, entityType: "plasticlist", entityId: item.id }));
   const sources = [
@@ -3163,6 +3178,8 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
   const isNearIdealScore = !product.scorePending && product.score >= 92;
   const isEstimatedScore = product.scoreConfidence === "estimated";
   const productSwap = getBetterSwapForProduct(products, product);
+  const visibleScoringEvidence = (product.scoringEvidence || []).filter(isVisibleScoringEvidence);
+  const visibleSources = (product.sources || []).filter(isVisibleAttachedSource);
   const displayName = isPendingPlaceholderText(product.name) ? "Product details needed" : product.name;
   const displayBrand = isPendingPlaceholderText(product.brand, "brand") ? "Pending review" : product.brand;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
@@ -3478,15 +3495,15 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
       <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
         <h3 className="font-semibold text-neutral-950">Sources attached</h3>
         <div className="mt-3 space-y-2">
-          {product.scoringEvidence?.map((evidence) => (
+          {visibleScoringEvidence.map((evidence) => (
             <div key={`${evidence.source_type}-${evidence.source_label}`} className="rounded-2xl bg-[#f7f3eb] p-3">
               <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">{evidence.source_type.replaceAll("_", " ")}</div>
               <div className="mt-1 font-medium text-neutral-950">{evidence.source_label}</div>
               <p className="mt-1 text-sm leading-5 text-neutral-500">{evidence.notes}</p>
             </div>
           ))}
-          {product.sources.slice(0, 2).map((link) => <SourceCard key={link.source.id} link={link} />)}
-          {!product.sources.length && !product.scoringEvidence?.length && <p className="text-sm text-neutral-500">No source links attached yet.</p>}
+          {visibleSources.slice(0, 2).map((link) => <SourceCard key={link.source.id} link={link} />)}
+          {!visibleSources.length && !visibleScoringEvidence.length && <p className="text-sm text-neutral-500">No source links attached yet.</p>}
         </div>
       </div>
 
