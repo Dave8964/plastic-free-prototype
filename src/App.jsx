@@ -2074,9 +2074,10 @@ function AddProductScreen({ close, draft = {}, onSubmit }) {
   };
   const hasRequiredText = name.trim() && brand.trim();
   const hasAcceptedFrontPhoto = photos.front && frontPhotoAccepted;
-  const canSubmit = draft.packagingEvidence ? hasRequiredText && (hasAcceptedFrontPhoto || photos.symbols) : hasRequiredText && hasAcceptedFrontPhoto;
+  const hasUnacceptedFrontPhoto = Boolean(photos.front && !frontPhotoAccepted);
+  const canSubmit = draft.packagingEvidence ? hasRequiredText && !hasUnacceptedFrontPhoto && (hasAcceptedFrontPhoto || photos.symbols) : hasRequiredText && hasAcceptedFrontPhoto;
   const showRequiredTextError = submitAttempted && !hasRequiredText;
-  const showUnacceptedFrontPhotoError = submitAttempted && photos.front && !frontPhotoAccepted;
+  const showUnacceptedFrontPhotoError = submitAttempted && hasUnacceptedFrontPhoto;
   const showMissingFrontPhotoError = submitAttempted && !draft.packagingEvidence && !photos.front;
 
   const stopCamera = () => {
