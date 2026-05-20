@@ -11,6 +11,11 @@ body {
   overscroll-behavior: none;
 }
 
+.app-scroll-root {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   html,
   body,
