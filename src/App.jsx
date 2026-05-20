@@ -4305,7 +4305,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     scrollIncomingScreen(screen);
   };
   const appSwipeBackHandlers = useSwipeBack(goBack, Boolean(canSwipeBack));
-  const backToTopSurface = historyList ? "history-list" : tab === "search" && !hideNav ? "search" : "";
+  const backToTopSurface = historyList ? "history-list" : showResult && !detail && !plasticListDetail && !shareProduct && !showAddProduct ? "product" : tab === "search" && !hideNav ? "search" : tab === "profile" && !hideNav ? "profile" : "";
   useEffect(() => {
     activeScrollSurfaceRef.current = backToTopSurface;
     setShowBackToTopButton(false);
@@ -4394,7 +4394,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 </AnimatePresence>
 </div>
 <AnimatePresence>
-{showBackToTopButton && <motion.button type="button" onClick={scrollCurrentPageToTop} initial={{ opacity: 0, y: 10, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.94 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className={`absolute right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] ring-1 ring-white/20 backdrop-blur-xl active:scale-[0.96] ${historyList ? "bottom-5" : "bottom-[7.25rem]"}`} aria-label="Back to top">↑</motion.button>}
+{showBackToTopButton && <motion.button type="button" onClick={scrollCurrentPageToTop} initial={{ opacity: 0, y: 10, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.94 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className={`absolute right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-2xl font-semibold text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] ring-1 ring-white/20 backdrop-blur-xl active:scale-[0.96] ${historyList || showResult ? "bottom-5" : "bottom-[7.25rem]"}`} aria-label="Back to top">↑</motion.button>}
 </AnimatePresence>
 {!hideNav && <div className="shrink-0"><BottomNav tab={tab} setTab={setTabSafe} /></div>}
 </div>
