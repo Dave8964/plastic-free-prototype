@@ -4023,8 +4023,21 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setViewUser(user);
   };
 
+  const hasRecordedScanForProduct = (product) => {
+    if (!product?.id) return false;
+    const productCodes = [product.barcode, ...(product.barcodes || [])].filter(Boolean).map(normalizeBarcode);
+    return scanHistory.some((scan) => {
+      if (scan.userId !== APP_USER_ID) return false;
+      if (scan.productId === product.id) return true;
+      const scannedProduct = products.find((item) => item.id === scan.productId);
+      const scannedCodes = [scannedProduct?.barcode, ...(scannedProduct?.barcodes || [])].filter(Boolean).map(normalizeBarcode);
+      return productCodes.length > 0 && scannedCodes.some((code) => productCodes.includes(code));
+    });
+  };
+
   const handleProductScanned = (product) => {
     if (!product?.id) return;
+    if (hasRecordedScanForProduct(product)) return;
     const plasticDetectiveProgress = getNextBadgeProgressText("plastic_detective");
     incrementBadge("plastic_detective", 1);
     incrementBadge("barcode_whisperer", 1);
