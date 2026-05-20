@@ -292,7 +292,7 @@ const badgeDefinitions = [
   { id: "plastic_detective", icon: "🔍", name: "Plastic Detective", description: "You scan products to uncover what’s really inside.", progress: 18, tiers: [{ name: "Bronze", threshold: 5 }, { name: "Silver", threshold: 25 }, { name: "Gold", threshold: 75 }, { name: "Platinum", threshold: 200 }] },
   { id: "microplastic_hunter", icon: "🧪", name: "Microplastic Hunter", description: "You catch the plastics others miss.", progress: 28, tiers: [{ name: "Bronze", threshold: 5 }, { name: "Silver", threshold: 20 }, { name: "Gold", threshold: 50 }, { name: "Platinum", threshold: 120 }] },
   { id: "red_flag_radar", icon: "🚨", name: "Red Flag Radar", description: "You spot high-risk products instantly.", progress: 82, tiers: [{ name: "Bronze", threshold: 5 }, { name: "Silver", threshold: 20 }, { name: "Gold", threshold: 50 }, { name: "Platinum", threshold: 120 }] },
-  { id: "ingredient_inspector", icon: "🧠", name: "Ingredient Inspector", description: "You go deeper than surface-level info.", progress: 322, tiers: [{ name: "Bronze", threshold: 15 }, { name: "Silver", threshold: 50 }, { name: "Gold", threshold: 120 }, { name: "Platinum", threshold: 300 }] },
+  { id: "ingredient_inspector", icon: "🏷️", name: "Label Inspector", description: "You verify packaging claims, symbols, and recycling labels.", progress: 322, tiers: [{ name: "Bronze", threshold: 15 }, { name: "Silver", threshold: 50 }, { name: "Gold", threshold: 120 }, { name: "Platinum", threshold: 300 }] },
   { id: "data_driven", icon: "📊", name: "Data Driven", description: "You use filters and tools to make smarter choices.", progress: 24, tiers: [{ name: "Bronze", threshold: 5 }, { name: "Silver", threshold: 20 }, { name: "Gold", threshold: 60 }, { name: "Platinum", threshold: 150 }] },
   { id: "community_voice", icon: "⭐", name: "Community Voice", description: "You help others by sharing your experience.", progress: 17, tiers: [{ name: "Bronze", threshold: 1 }, { name: "Silver", threshold: 5 }, { name: "Gold", threshold: 15 }, { name: "Platinum", threshold: 40 }] },
   { id: "conscious_consumer", icon: "🧭", name: "Conscious Consumer", description: "Your choices consistently avoid plastics.", progress: 76, isPercent: true, tiers: [{ name: "Bronze", threshold: 60 }, { name: "Silver", threshold: 75 }, { name: "Gold", threshold: 85 }, { name: "Platinum", threshold: 95 }] },
@@ -2723,7 +2723,7 @@ function BadgeGlyph({ id, size = 34 }) {
     plastic_detective: <><circle cx="10" cy="10" r="5.5" /><path d="m14.5 14.5 5 5" /><path d="M8 9.5h4" /></>,
     microplastic_hunter: <><path d="M9 3h6" /><path d="M10 3v6.5L6.5 17a3 3 0 0 0 2.7 4.3h5.6A3 3 0 0 0 17.5 17L14 9.5V3" /><path d="M8.4 16h7.2" /></>,
     red_flag_radar: <><path d="M5 21V4" /><path d="M5 5h11l-2 4 2 4H5" /><path d="M18 18l1.5 1.5" /><path d="M19.5 14.5h2" /></>,
-    ingredient_inspector: <><rect x="6" y="3" width="12" height="18" rx="3" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h3" /></>,
+    ingredient_inspector: <><path d="M20.5 13.5 13.5 20.5a2 2 0 0 1-2.8 0L3.5 13.3a2 2 0 0 1-.5-1.4V5.5A2.5 2.5 0 0 1 5.5 3h6.4a2 2 0 0 1 1.4.6l7.2 7.1a2 2 0 0 1 0 2.8Z" /><circle cx="8" cy="8" r="1.5" /><path d="M11 13h5" /><path d="M13.5 10.5 16 13l-2.5 2.5" /></>,
     data_driven: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 16v-5" /><path d="M12 16V8" /><path d="M16 16v-8" /></>,
     community_voice: <><path d="M7 10a5 5 0 0 1 10 0c0 4-5 8-5 8s-5-4-5-8Z" /><path d="M9.5 10a2.5 2.5 0 0 0 5 0" /></>,
     conscious_consumer: <><path d="M12 21s7-4.5 7-11.5A6.5 6.5 0 0 0 12 3a6.5 6.5 0 0 0-7 6.5C5 16.5 12 21 12 21Z" /><path d="M9 11.5 11.2 14 15.5 9" /></>,
@@ -2741,7 +2741,7 @@ function getBadgeUnlockNote(badge) {
     plastic_detective: "Scan products with the barcode scanner. Every successful product scan moves this badge forward.",
     microplastic_hunter: "Open product details and review hidden packaging concerns, especially parts with plastic contact.",
     red_flag_radar: "Find and review products with high concern scores or added health-risk flags.",
-    ingredient_inspector: "Open detailed breakdowns and source-backed evidence to understand why a score was assigned.",
+    ingredient_inspector: "Upload or inspect packaging labels, recycling symbols, BPA-free claims, plastic-free claims, and brand-confirmed packaging evidence.",
     data_driven: "Use search, filters, product comparisons, and detail views to make more informed swaps.",
     community_voice: "Save, share, and contribute product information that helps other people make decisions.",
     conscious_consumer: "Keep your saved and scanned products weighted toward lower-plastic, cleaner-rated choices.",
@@ -2752,6 +2752,44 @@ function getBadgeUnlockNote(badge) {
     word_of_mouth: "Share useful product finds or warnings with other people from product pages.",
   };
   return notes[badge.id] || "Use the app and keep completing related actions to move this badge forward.";
+}
+
+function hasLabelInspectorSignal(product, link) {
+  const source = link?.source || {};
+  const sourceText = [
+    source.id,
+    source.title,
+    source.organization,
+    source.summary,
+    link?.sourceId,
+    link?.note,
+  ].filter(Boolean).join(" ").toLowerCase();
+  const labelTerms = ["label", "how2recycle", "recycl", "bpa", "liner", "plastic-free", "plastic free", "brand", "resin"];
+  const hasSourceSignal = labelTerms.some((term) => sourceText.includes(term));
+  const hasPartSignal = (product?.parts || []).some((part) => {
+    const text = [
+      part.labelClaim,
+      part.recyclingClaim,
+      part.linerType,
+      part.evidence,
+      part.notes,
+      part.material?.claim,
+      part.material?.linerLabel,
+      part.material?.recyclingLabel,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return labelTerms.some((term) => text.includes(term));
+  });
+  return hasSourceSignal || hasPartSignal;
+}
+
+function hasUploadedLabelEvidence(photos = {}) {
+  const notes = String(photos.notes || photos.packagingNotes || "").toLowerCase();
+  return Boolean(
+    photos.symbols ||
+    photos.recycling ||
+    photos.inside ||
+    ["label", "how2recycle", "recycl", "bpa", "liner", "plastic-free", "plastic free", "resin"].some((term) => notes.includes(term))
+  );
 }
 
 const badgeTierStyles = {
@@ -3841,6 +3879,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     setSubmittedProducts((current) => current.some(samePendingProduct) ? current.map((item) => samePendingProduct(item) ? product : item) : [product, ...current]);
     setSubmittedParts((current) => [...current.filter((part) => part.productId !== product.id), ...parts]);
     awardBadge("community_voice", 1, `submit-product:${product.id}`);
+    if (hasUploadedLabelEvidence(mergedPhotos)) awardBadge("ingredient_inspector", 1, `label-upload:${product.id}`);
     recordScan(product.id);
     saveBackendSubmission(submission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
@@ -3871,6 +3910,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     const submission = { id: `photo_${product.id}_${Date.now()}`, product: submissionProduct, parts: [], photos: { ...photos, front: frontPhoto } };
     setReviewSubmissions((current) => [submission, ...current.filter((item) => item.id !== submission.id)]);
     awardBadge("community_voice", 1, `submit-photo:${product.id}`);
+    if (hasUploadedLabelEvidence(photos)) awardBadge("ingredient_inspector", 1, `label-photo:${product.id}`);
     await saveBackendSubmission(submission).catch(() => {
       const localSubmissions = readLocalJson(LOCAL_SUBMISSIONS_KEY, []);
       writeLocalJson(LOCAL_SUBMISSIONS_KEY, [submission, ...localSubmissions.filter((item) => item.id !== submission.id)]);
@@ -3953,6 +3993,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const openPartDetail = (product, part) => {
     awardBadge("deep_diver", 1, `part-detail:${product?.id}:${part?.id}`);
+    if (hasLabelInspectorSignal({ ...product, parts: [part] })) awardBadge("ingredient_inspector", 1, `label-part:${product?.id}:${part?.id}`);
     productScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreProductScrollRef.current = false;
     setDetail({ product, part });
@@ -3964,7 +4005,6 @@ export default function PlasticFreeScannerDatabasePrototype() {
   };
 
   const openPlasticListEvidence = (product) => {
-    awardBadge("ingredient_inspector", 1, `plasticlist:${product?.id}`);
     awardBadge("deep_diver", 1, `lab-evidence:${product?.id}`);
     productScrollTopRef.current = contentScrollRef.current?.scrollTop || 0;
     shouldRestoreProductScrollRef.current = false;
@@ -4340,7 +4380,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showResult ? (
   <motion.div key={`result-${result?.id || "unknown"}`} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
-    <ResultScreen product={result} products={products} close={closeResult} openResult={openResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} onScoreBreakdownOpen={(product) => { awardBadge("ingredient_inspector", 1, `score-breakdown:${product?.id}`); awardBadge("deep_diver", 1, `score-detail:${product?.id}`); awardBadge("plastic_pro", 1, `score-system:${product?.id}`); }} onAttachedSourceOpen={(product, link) => { awardBadge("deep_diver", 1, `attached-source:${product?.id}:${link?.source?.id}`); awardBadge("ingredient_inspector", 1, `attached-source:${product?.id}:${link?.source?.id}`); }} />
+    <ResultScreen product={result} products={products} close={closeResult} openResult={openResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} onScoreBreakdownOpen={(product) => { awardBadge("deep_diver", 1, `score-detail:${product?.id}`); awardBadge("plastic_pro", 1, `score-system:${product?.id}`); }} onAttachedSourceOpen={(product, link) => { awardBadge("deep_diver", 1, `attached-source:${product?.id}:${link?.source?.id}`); if (hasLabelInspectorSignal(product, link)) awardBadge("ingredient_inspector", 1, `label-source:${product?.id}:${link?.source?.id}`); }} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "history" ? "history" : tab === "search" ? "search" : tab === "social" ? "social" : tab === "profile" ? "profile" : "top", definition)}>
