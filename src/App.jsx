@@ -2455,6 +2455,16 @@ function getBetterSwap(products) {
   }, null);
 }
 
+function getBetterSwapForProduct(products, product) {
+  const type = getProductSwapType(product);
+  if (!type || product?.scorePending || !Number.isFinite(Number(product?.score))) return null;
+  const candidates = products
+    .filter((candidate) => candidate.id !== product.id && !candidate.scorePending && getProductSwapType(candidate) === type && Number(candidate.score) >= Number(product.score) + 10)
+    .sort((a, b) => b.score - a.score);
+  const swapTo = candidates[0];
+  return swapTo ? { from: product, to: swapTo } : null;
+}
+
 function getTrendingProducts(products) {
   const ids = [
     "paper_soap",
@@ -3026,6 +3036,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
     [dishwasherSwap?.score > dishwasher?.score, "cleaner dishwasher detergent swap should score higher than pod detergent"],
     [getProductSwapType(dishwasher) === getProductSwapType(dishwasherSwap), "dishwasher swaps should share the same product type"],
     [betterSwap?.from?.id === "kirkland_dishwasher" && betterSwap?.to?.id === "blueland_dishwasher_tablets", "social better swap should compare same-type dishwasher detergents"],
+    [getBetterSwapForProduct(products, dishwasher)?.to?.id === "blueland_dishwasher_tablets", "product pages should show same-type better swap for low-scoring products"],
     [products.find(p => p.id === "campbells_soup")?.hasHighRiskCanScenario === true, "soup should trigger high-risk can scenario"],
     [products.find(p => p.id === "campbells_soup")?.score === 15, "hot canned soup should use calibrated common-ground score"],
     [products.find(p => p.id === "campbells_soup")?.parts.every(part => part.totalImpact >= -40 && part.totalImpact <= 0), "part impacts should be normalized between 0 and -40"],
@@ -3106,7 +3117,7 @@ function ProfileScreen({ products, badges, highlightBadge, openResult, openSetti
 }
 runTests();
 
-function ResultScreen({ product, close, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess, onSubmitProductPhoto }) {
+function ResultScreen({ product, products = [], close, openResult, openDetail, openPlasticListEvidence, openShare, favoriteIds = [], toggleFavorite, profile, localeCopy = getLocaleCopy(), onFavoriteAdded, onShareSuccess, onSubmitProductPhoto }) {
   const [useLocation, setUseLocation] = useState(false);
   const [selectedRecyclingLocation, setSelectedRecyclingLocation] = useState("toronto_on");
   const [locationStatus, setLocationStatus] = useState("idle");
@@ -3149,6 +3160,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
   const productPhotoMissing = imageMissing || !hasProductPhoto(product);
   const isNearIdealScore = !product.scorePending && product.score >= 92;
   const isEstimatedScore = product.scoreConfidence === "estimated";
+  const productSwap = getBetterSwapForProduct(products, product);
   const displayName = isPendingPlaceholderText(product.name) ? "Product details needed" : product.name;
   const displayBrand = isPendingPlaceholderText(product.brand, "brand") ? "Pending review" : product.brand;
   const recyclingRules = product.parts.map((part) => getPartRecyclingRule(part, useLocation, selectedRecyclingLocation));
@@ -3404,12 +3416,7 @@ function ResultScreen({ product, close, openDetail, openPlasticListEvidence, ope
 
       <PlasticListEvidenceSummary evidence={product.plasticListEvidence} onOpen={() => openPlasticListEvidence(product)} />
 
-      <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
-        <h3 className="font-semibold text-neutral-950">Better alternative</h3>
-        <div className="mt-3 rounded-2xl bg-[#f7f3eb] p-3 text-sm leading-5 text-neutral-700">
-          {product.alternatives?.[0] || "Choose lower-plastic packaging when possible."}
-        </div>
-      </div>
+      {productSwap && <div className="mt-5"><BetterSwapHighlight swapFrom={productSwap.from} swapTo={productSwap.to} openResult={openResult} /></div>}
 
       <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-start justify-between gap-4">
@@ -4184,7 +4191,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
   </motion.div>
 ) : showResult ? (
   <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={productPageTransition} onAnimationStart={(definition) => handleScreenAnimationStart("product", definition)}>
-    <ResultScreen product={result} close={closeResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
+    <ResultScreen product={result} products={products} close={closeResult} openResult={openResult} openDetail={openPartDetail} openPlasticListEvidence={openPlasticListEvidence} openShare={(product) => setShareProduct(product)} favoriteIds={favoriteIds} toggleFavorite={toggleFavorite} profile={profile} localeCopy={localeCopy} onFavoriteAdded={() => showToast(`Added to ${localeCopy.favoritesLower}`, 1800)} onShareSuccess={showShareBadgeToast} onSubmitProductPhoto={submitProductPhotoForReview} />
   </motion.div>
 ) : (
   <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={returnToTabTransition} onAnimationStart={(definition) => handleScreenAnimationStart(tab === "history" ? "history" : tab === "search" ? "search" : tab === "social" ? "social" : tab === "profile" ? "profile" : "top", definition)}>
