@@ -2760,6 +2760,34 @@ const badgeTierStyles = {
   Starter: { medal: "radial-gradient(circle at 32% 24%, #f3fff6 0%, #9edba9 48%, #63b879 100%)", text: "text-[#4f9d61]", shadow: "0 8px 18px rgba(99,184,121,0.24), inset 0 1px 2px rgba(255,255,255,0.9)" }
 };
 
+function BadgeMedalFinish({ tierName, highlight = false }) {
+  return (
+    <>
+      {tierName !== "Starter" && (
+        <>
+          <div className="pointer-events-none absolute inset-0 rounded-full" style={{ background: "radial-gradient(circle at 32% 24%, rgba(255,255,255,0.56) 0%, rgba(255,255,255,0.18) 28%, transparent 44%), linear-gradient(145deg, rgba(255,255,255,0.28), rgba(0,0,0,0.16))", boxShadow: "inset 0 1px 2px rgba(255,255,255,0.72), inset 0 -2px 4px rgba(0,0,0,0.2)" }} />
+          <div className="pointer-events-none absolute inset-[1px] rounded-full opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.85) 0 1px, transparent 1.2px), radial-gradient(circle at 72% 64%, rgba(0,0,0,0.35) 0 0.7px, transparent 1px)", backgroundSize: "7px 7px, 9px 9px" }} />
+          <div className="pointer-events-none absolute inset-0 rounded-full shadow-inner ring-1 ring-white/80" />
+        </>
+      )}
+      {tierName === "Gold" && (
+        <>
+          <div className="pointer-events-none absolute inset-[-1px] rounded-full" style={{ background: "conic-gradient(from 210deg, transparent 0deg, rgba(255,255,255,0.55) 42deg, transparent 88deg, rgba(126,70,0,0.28) 172deg, transparent 260deg, rgba(255,238,156,0.45) 322deg, transparent 360deg)" }} />
+          <div className="pointer-events-none absolute inset-[4px] rounded-full border border-white/45" style={{ boxShadow: "inset 0 1px 2px rgba(255,255,255,0.92), inset 0 -2px 3px rgba(120,72,0,0.24)" }} />
+        </>
+      )}
+      {tierName === "Platinum" && (
+        <>
+          <div className="pointer-events-none absolute inset-[-1px] rounded-full" style={{ background: "conic-gradient(from 225deg, transparent 0deg, rgba(255,255,255,0.82) 38deg, transparent 72deg, rgba(96,126,151,0.28) 150deg, transparent 218deg, rgba(218,245,255,0.7) 292deg, transparent 360deg)" }} />
+          <div className="pointer-events-none absolute inset-[4px] rounded-full border border-white/65" style={{ boxShadow: "inset 0 1px 3px rgba(255,255,255,0.96), inset 0 -2px 4px rgba(58,83,108,0.24)" }} />
+          <motion.div className="pointer-events-none absolute inset-0 overflow-hidden rounded-full" style={{ background: "linear-gradient(118deg, transparent 34%, rgba(255,255,255,0.75) 48%, rgba(205,238,255,0.48) 52%, transparent 66%)" }} initial={{ x: "-125%", opacity: 0 }} animate={{ x: ["-125%", "125%"], opacity: [0, 0.72, 0] }} transition={{ duration: 2.35, repeat: Infinity, ease: "easeInOut", delay: 0.55 }} />
+        </>
+      )}
+      {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/35 blur-sm" />}
+    </>
+  );
+}
+
 function BadgeCard({ badge, highlight, compact = false, onSelect }) {
   const status = getBadgeStatus(badge);
   const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
@@ -2882,7 +2910,7 @@ function BadgeDetailScreen({ badge, close }) {
   const tier = badgeTierStyles[status.currentTier] || badgeTierStyles.Starter;
   const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
   const targetText = status.isMaxTier ? "Highest tier unlocked" : `Next: ${status.nextTier}`;
-  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badge" right={<BackButton onClick={close} />} /><div className="overflow-hidden rounded-[2rem] bg-white p-5 text-center shadow-[0_14px_36px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]"><div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#f7f3eb] text-neutral-950 shadow-inner"><BadgeGlyph id={badge.id} size={50} /><div className="absolute -right-3 -top-3 h-12 w-12 overflow-hidden rounded-full ring-2 ring-white" style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}>{status.currentTier === "Platinum" && <motion.div className="absolute inset-0 rounded-full" style={{ background: "linear-gradient(118deg, transparent 32%, rgba(255,255,255,0.78) 48%, rgba(205,238,255,0.5) 54%, transparent 68%)" }} initial={{ x: "-125%", opacity: 0 }} animate={{ x: ["-125%", "125%"], opacity: [0, 0.78, 0] }} transition={{ duration: 2.25, repeat: Infinity, ease: "easeInOut" }} />}</div></div><h2 className="mt-5 text-[30px] font-semibold leading-none tracking-[-0.05em] text-neutral-950">{badge.name}</h2><div className={`mt-2 text-sm font-semibold ${tier.text}`}>{status.currentTier}</div><p className="mx-auto mt-4 max-w-[310px] text-sm leading-6 text-neutral-500">{badge.description}</p><div className="mt-5 rounded-3xl bg-[#f7f3eb] p-4 text-left"><div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-neutral-600"><span>{targetText}</span><span className="shrink-0 tabular-nums">{progressText}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-white shadow-inner"><motion.div className="h-full origin-left rounded-full bg-neutral-950" initial={{ scaleX: 0 }} animate={{ scaleX: status.percent / 100 }} transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }} /></div></div></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">How to unlock</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{getBadgeUnlockNote(badge)}</p></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Tiers</h3><div className="mt-3 space-y-2">{badge.tiers.map((tierItem) => { const reached = badge.progress >= tierItem.threshold; return <div key={tierItem.name} className={`flex items-center justify-between rounded-2xl px-3 py-2 text-sm ${reached ? "bg-[#f7f3eb] text-neutral-950" : "bg-white text-neutral-400 ring-1 ring-black/[0.04]"}`}><span className="font-semibold">{tierItem.name}</span><span className="tabular-nums">{badge.isPercent ? `${tierItem.threshold}%` : tierItem.threshold}</span></div>; })}</div></div></div>;
+  return <div className="min-h-[690px] overflow-y-auto px-5 pb-5"><Header title="Badge" right={<BackButton onClick={close} />} /><div className="overflow-hidden rounded-[2rem] bg-white p-5 text-center shadow-[0_14px_36px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]"><div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#f7f3eb] text-neutral-950 shadow-inner"><BadgeGlyph id={badge.id} size={50} /><div className="absolute -right-3 -top-3 h-12 w-12 overflow-hidden rounded-full ring-2 ring-white" style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}><BadgeMedalFinish tierName={status.currentTier} /></div></div><h2 className="mt-5 text-[30px] font-semibold leading-none tracking-[-0.05em] text-neutral-950">{badge.name}</h2><div className={`mt-2 text-sm font-semibold ${tier.text}`}>{status.currentTier}</div><p className="mx-auto mt-4 max-w-[310px] text-sm leading-6 text-neutral-500">{badge.description}</p><div className="mt-5 rounded-3xl bg-[#f7f3eb] p-4 text-left"><div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-neutral-600"><span>{targetText}</span><span className="shrink-0 tabular-nums">{progressText}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-white shadow-inner"><motion.div className="h-full origin-left rounded-full bg-neutral-950" initial={{ scaleX: 0 }} animate={{ scaleX: status.percent / 100 }} transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }} /></div></div></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">How to unlock</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{getBadgeUnlockNote(badge)}</p></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Tiers</h3><div className="mt-3 space-y-2">{badge.tiers.map((tierItem) => { const reached = badge.progress >= tierItem.threshold; return <div key={tierItem.name} className={`flex items-center justify-between rounded-2xl px-3 py-2 text-sm ${reached ? "bg-[#f7f3eb] text-neutral-950" : "bg-white text-neutral-400 ring-1 ring-black/[0.04]"}`}><span className="font-semibold">{tierItem.name}</span><span className="tabular-nums">{badge.isPercent ? `${tierItem.threshold}%` : tierItem.threshold}</span></div>; })}</div></div></div>;
 }
 
 function BadgesScreen({ badges, highlightBadge, close, openBadge }) {
@@ -3566,6 +3594,8 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const [addProductDraft, setAddProductDraft] = useState({});
   const [badgeToast, setBadgeToast] = useState(null);
   const toastTimeoutRef = useRef(null);
+  const toastQueueRef = useRef([]);
+  const toastVisibleRef = useRef(false);
   const badgeActionKeysRef = useRef(new Set());
   const contentScrollRef = useRef(null);
   const addProductSheetTouchRef = useRef({ y: 0, scrollTop: 0 });
@@ -3975,15 +4005,36 @@ export default function PlasticFreeScannerDatabasePrototype() {
     }));
   };
 
-  const showToast = (message, duration = 2500) => {
+  const showNextToast = () => {
+    const nextToast = toastQueueRef.current.shift();
+    if (!nextToast) {
+      toastVisibleRef.current = false;
+      setBadgeToast(null);
+      return;
+    }
+    toastVisibleRef.current = true;
+    setBadgeToast(nextToast.message);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setBadgeToast(message);
-    toastTimeoutRef.current = setTimeout(() => setBadgeToast(null), duration);
+    toastTimeoutRef.current = setTimeout(() => {
+      setBadgeToast(null);
+      window.setTimeout(showNextToast, 160);
+    }, nextToast.duration);
+  };
+
+  const showToast = (message, duration = 2500) => {
+    toastQueueRef.current.push({ message, duration });
+    if (!toastVisibleRef.current) showNextToast();
   };
 
   const showShareBadgeToast = () => {
-    const unlocked = awardBadge("word_of_mouth", 1, `share:${shareProduct?.id || Date.now()}`);
-    if (!unlocked) showToast("+1 toward Word of Mouth", 2200);
+    awardBadge("word_of_mouth", 1, `share:${shareProduct?.id || Date.now()}`);
+  };
+
+  const getBadgeProgressToast = (badge, amount = 1) => {
+    const updatedBadge = { ...badge, progress: badge.progress + amount };
+    const status = getBadgeStatus(updatedBadge);
+    const progressText = badge.isPercent ? `${status.displayProgress}%` : `${status.displayProgress} / ${status.nextThreshold}`;
+    return `+${amount} ${badge.name} • ${progressText}`;
   };
 
   const awardBadge = (id, amount = 1, actionKey = "") => {
@@ -3993,6 +4044,7 @@ export default function PlasticFreeScannerDatabasePrototype() {
     const didUnlock = badge ? getBadgeStatus(badge).currentTier !== getBadgeStatus({ ...badge, progress: badge.progress + amount }).currentTier : false;
     badgeActionKeysRef.current.add(`${id}:${key}`);
     incrementBadge(id, amount);
+    if (badge && !didUnlock) showToast(getBadgeProgressToast(badge, amount), 1900);
     return didUnlock;
   };
 
@@ -4008,14 +4060,6 @@ export default function PlasticFreeScannerDatabasePrototype() {
 
   const awardSearchBadge = (key) => {
     awardBadge("data_driven", 1, key);
-  };
-
-  const getNextBadgeProgressText = (id, amount = 1) => {
-    const badge = badgeProgress.find((item) => item.id === id);
-    if (!badge) return "";
-    const updatedBadge = { ...badge, progress: badge.progress + amount };
-    const status = getBadgeStatus(updatedBadge);
-    return badge.isPercent ? `${status.displayProgress}%` : `${status.displayProgress} / ${status.nextThreshold}`;
   };
 
   const openPlansFromProfile = () => {
@@ -4087,11 +4131,9 @@ export default function PlasticFreeScannerDatabasePrototype() {
   const handleProductScanned = (product) => {
     if (!product?.id) return;
     if (hasRecordedScanForProduct(product)) return;
-    const plasticDetectiveProgress = getNextBadgeProgressText("plastic_detective");
-    const scanUnlocked = awardBadge("plastic_detective", 1, `scan:${product.id}`);
-    const barcodeUnlocked = awardBadge("barcode_whisperer", 1, `barcode:${product.barcode || product.id}`);
-    const productViewUnlocked = awardProductViewBadges(product);
-    if (!scanUnlocked && !barcodeUnlocked && !productViewUnlocked) showToast(`Scan recorded • Plastic Detective ${plasticDetectiveProgress}`, 2400);
+    awardBadge("plastic_detective", 1, `scan:${product.id}`);
+    awardBadge("barcode_whisperer", 1, `barcode:${product.barcode || product.id}`);
+    awardProductViewBadges(product);
     recordScan(product.id);
   };
 
