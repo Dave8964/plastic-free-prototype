@@ -1986,7 +1986,7 @@ function DetailScreen({ product, part, close }) {
 
 function ScoreBreakdownPanel({ product, close }) {
   const panelRef = useRef(null);
-  const rows = [["Health Risk", product.splitScores.health, "Heat, acidity, ingestion, skin contact, and leaching risk."], ["Plastic Exposure", product.splitScores.exposure, "How much plastic is present and how close it is to the product."], ["Recyclability", product.splitScores.recyclability, "How likely the plastic parts are to be accepted in recycling."]];
+  const rows = [["Health Risk", product.splitScores.health, "Heat, acidity, ingestion, skin contact, and leaching risk."], ["Plastic Exposure", product.splitScores.exposure, "How much plastic is present and how close it is to the product."], ["Recyclability", product.splitScores.recyclability, "How likely the plastic parts are to be recyclable."]];
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
