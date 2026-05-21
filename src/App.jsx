@@ -2605,13 +2605,13 @@ function SwapProductTile({ product, label, tone, onClick }) {
 
 function BetterSwapHighlight({ swapFrom, swapTo, openResult, onSwapView }) {
   if (!swapFrom || !swapTo) return null;
-  return <Card><div className="p-4"><SocialHighlightHeader title="Better swap spotted" copy="Same product type, cleaner-rated option" /><div className="space-y-2"><SwapProductTile product={swapFrom} label="From" tone="from" onClick={() => openResult(swapFrom)} /><div className="flex h-5 items-center justify-center text-lg font-semibold text-neutral-400">↓</div><SwapProductTile product={swapTo} label="To" tone="better" onClick={() => { onSwapView?.(swapFrom, swapTo); openResult(swapTo); }} /></div></div></Card>;
+  return <Card><div className="p-4"><SocialHighlightHeader title="Better alternative" copy="Cleaner-rated option in the same product type" /><button type="button" onClick={() => { onSwapView?.(swapFrom, swapTo); openResult(swapTo); }} className="flex w-full items-center gap-3 rounded-2xl bg-[#f4fbf6] p-3 text-left transition active:scale-[0.99]"><ProductImage src={swapTo.imageUrl} alt={swapTo.name} className="h-14 w-14 rounded-xl object-cover shadow-sm" /><div className="min-w-0 flex-1"><div className="line-clamp-1 text-[15px] font-semibold leading-tight text-neutral-950">{swapTo.name}</div><div className="mt-0.5 line-clamp-1 text-xs font-medium text-neutral-500">{swapTo.brand}</div><div className="mt-1 text-[11px] font-medium text-emerald-700/80">Better than {swapFrom.name}</div></div><CompactScoreCircle product={swapTo} /></button></div></Card>;
 }
 
 function GenericAlternativeHighlight({ product }) {
   const suggestions = getGenericAlternativesForProduct(product).filter(Boolean).slice(0, 3);
   if (!suggestions.length) return null;
-  return <Card><div className="p-4"><SocialHighlightHeader title="Better alternative" copy="What to look for if no rated swap is available" /><div className="space-y-2">{suggestions.map((item) => <div key={item} className="rounded-2xl bg-[#f7f3eb] p-3 text-sm leading-5 text-neutral-700">{item}</div>)}</div></div></Card>;
+  return <Card><div className="p-4"><SocialHighlightHeader title="Better alternative" copy="What to look for next" /><div className="rounded-2xl bg-[#f7f3eb] p-3 text-sm leading-5 text-neutral-700">{suggestions[0]}</div>{suggestions[1] && <p className="mt-2 px-1 text-xs leading-5 text-neutral-500">{suggestions[1]}</p>}</div></Card>;
 }
 
 function SocialScreen({ products, openResult, openNotifications, openUserProfile, savedProductIds = [], toggleFavorite, unreadNotifications = 0 }) {
@@ -2877,36 +2877,20 @@ function hasUploadedLabelEvidence(photos = {}) {
 }
 
 const badgeTierStyles = {
-  Bronze: { medal: "radial-gradient(circle at 32% 24%, #ffe1c6 0%, #bf7b50 42%, #76503b 100%)", text: "text-[#8b5130]" },
-  Silver: { medal: "radial-gradient(circle at 32% 24%, #ffffff 0%, #b8c0c8 46%, #6e7882 100%)", text: "text-[#65707a]" },
-  Gold: { medal: "radial-gradient(circle at 30% 24%, #fff9d7 0%, #ffd54a 35%, #c99317 70%, #7a4a00 100%)", text: "text-[#ad7500]", shadow: "0 10px 22px rgba(210,152,22,0.34), inset 0 1px 2px rgba(255,255,255,0.88)" },
-  Platinum: { medal: "radial-gradient(circle at 30% 22%, #ffffff 0%, #e5f8ff 30%, #b7d8ec 58%, #6f879c 100%)", text: "text-[#66869d]", shadow: "0 10px 24px rgba(148,199,228,0.38), inset 0 1px 2px rgba(255,255,255,0.92)" },
-  Starter: { medal: "radial-gradient(circle at 32% 24%, #f3fff6 0%, #9edba9 48%, #63b879 100%)", text: "text-[#4f9d61]", shadow: "0 8px 18px rgba(99,184,121,0.24), inset 0 1px 2px rgba(255,255,255,0.9)" }
+  Bronze: { medal: "#c78b62", border: "#9c6748", text: "text-[#8b5130]", mark: "#fff6ee" },
+  Silver: { medal: "#d7dce0", border: "#a4adb5", text: "text-[#65707a]", mark: "#ffffff" },
+  Gold: { medal: "#e3bc3d", border: "#b88b17", text: "text-[#ad7500]", mark: "#fff7d2" },
+  Platinum: { medal: "#cfe5ee", border: "#7ea2b5", text: "text-[#66869d]", mark: "#ffffff" },
+  Starter: { medal: "#9edba9", border: "#63b879", text: "text-[#4f9d61]", mark: "#f6fff8" }
 };
 
 function BadgeMedalFinish({ tierName, highlight = false }) {
+  const tier = badgeTierStyles[tierName] || badgeTierStyles.Starter;
   return (
     <>
-      {tierName !== "Starter" && (
-        <>
-          <div className="pointer-events-none absolute inset-0 rounded-full" style={{ background: "radial-gradient(circle at 32% 24%, rgba(255,255,255,0.56) 0%, rgba(255,255,255,0.18) 28%, transparent 44%), linear-gradient(145deg, rgba(255,255,255,0.28), rgba(0,0,0,0.16))", boxShadow: "inset 0 1px 2px rgba(255,255,255,0.72), inset 0 -2px 4px rgba(0,0,0,0.2)" }} />
-          <div className="pointer-events-none absolute inset-[1px] rounded-full opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.85) 0 1px, transparent 1.2px), radial-gradient(circle at 72% 64%, rgba(0,0,0,0.35) 0 0.7px, transparent 1px)", backgroundSize: "7px 7px, 9px 9px" }} />
-          <div className="pointer-events-none absolute inset-0 rounded-full shadow-inner ring-1 ring-white/80" />
-        </>
-      )}
-      {tierName === "Gold" && (
-        <>
-          <div className="pointer-events-none absolute inset-[-1px] rounded-full" style={{ background: "conic-gradient(from 210deg, transparent 0deg, rgba(255,255,255,0.55) 42deg, transparent 88deg, rgba(126,70,0,0.28) 172deg, transparent 260deg, rgba(255,238,156,0.45) 322deg, transparent 360deg)" }} />
-          <div className="pointer-events-none absolute inset-[4px] rounded-full border border-white/45" style={{ boxShadow: "inset 0 1px 2px rgba(255,255,255,0.92), inset 0 -2px 3px rgba(120,72,0,0.24)" }} />
-        </>
-      )}
-      {tierName === "Platinum" && (
-        <>
-          <div className="pointer-events-none absolute inset-[-1px] rounded-full" style={{ background: "conic-gradient(from 225deg, transparent 0deg, rgba(255,255,255,0.82) 38deg, transparent 72deg, rgba(96,126,151,0.28) 150deg, transparent 218deg, rgba(218,245,255,0.7) 292deg, transparent 360deg)" }} />
-          <div className="pointer-events-none absolute inset-[4px] rounded-full border border-white/65" style={{ boxShadow: "inset 0 1px 3px rgba(255,255,255,0.96), inset 0 -2px 4px rgba(58,83,108,0.24)" }} />
-          <motion.div className="pointer-events-none absolute inset-0 overflow-hidden rounded-full" style={{ background: "linear-gradient(118deg, transparent 34%, rgba(255,255,255,0.75) 48%, rgba(205,238,255,0.48) 52%, transparent 66%)" }} initial={{ x: "-125%", opacity: 0 }} animate={{ x: ["-125%", "125%"], opacity: [0, 0.72, 0] }} transition={{ duration: 2.35, repeat: Infinity, ease: "easeInOut", delay: 0.55 }} />
-        </>
-      )}
+      <div className="pointer-events-none absolute inset-[5px] rounded-full bg-white/20" />
+      <div className="pointer-events-none absolute inset-[9px] rounded-full border-[2px]" style={{ borderColor: tier.mark }} />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: tier.mark }} />
       {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/35 blur-sm" />}
     </>
   );
@@ -2934,64 +2918,10 @@ function BadgeCard({ badge, highlight, compact = false, onSelect }) {
       <motion.div
         animate={highlight ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : { scale: 1 }}
         transition={{ duration: 0.65 }}
-        className={`absolute z-10 overflow-hidden rounded-full text-white shadow-[0_8px_18px_rgba(0,0,0,0.18)] ring-2 ring-white/80 ${compact ? "right-3 top-3 h-8 w-8 text-xs" : "left-[76px] top-[76px] h-11 w-11 text-lg"}`}
-        style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}
+        className={`absolute z-10 overflow-hidden rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.10)] ring-2 ring-white ${compact ? "right-3 top-3 h-8 w-8" : "left-[76px] top-[76px] h-11 w-11"}`}
+        style={{ background: tier.medal, border: `1.5px solid ${tier.border}` }}
       >
-        {status.currentTier !== "Starter" && (
-          <>
-            <div
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                background: "radial-gradient(circle at 32% 24%, rgba(255,255,255,0.56) 0%, rgba(255,255,255,0.18) 28%, transparent 44%), linear-gradient(145deg, rgba(255,255,255,0.28), rgba(0,0,0,0.16))",
-                boxShadow: "inset 0 1px 2px rgba(255,255,255,0.72), inset 0 -2px 4px rgba(0,0,0,0.2)"
-              }}
-            />
-            <div
-              className="pointer-events-none absolute inset-[1px] rounded-full opacity-[0.08] mix-blend-overlay"
-              style={{
-                backgroundImage: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.85) 0 1px, transparent 1.2px), radial-gradient(circle at 72% 64%, rgba(0,0,0,0.35) 0 0.7px, transparent 1px)",
-                backgroundSize: "7px 7px, 9px 9px"
-              }}
-            />
-            <div className="pointer-events-none absolute inset-0 rounded-full shadow-inner ring-1 ring-white/80" />
-          </>
-        )}
-
-        {status.currentTier === "Gold" && (
-          <>
-            <div
-              className="pointer-events-none absolute inset-[-1px] rounded-full"
-              style={{ background: "conic-gradient(from 210deg, transparent 0deg, rgba(255,255,255,0.55) 42deg, transparent 88deg, rgba(126,70,0,0.28) 172deg, transparent 260deg, rgba(255,238,156,0.45) 322deg, transparent 360deg)" }}
-            />
-            <div
-              className="pointer-events-none absolute inset-[4px] rounded-full border border-white/45"
-              style={{ boxShadow: "inset 0 1px 2px rgba(255,255,255,0.92), inset 0 -2px 3px rgba(120,72,0,0.24)" }}
-            />
-          </>
-        )}
-
-        {status.currentTier === "Platinum" && (
-          <>
-            <div
-              className="pointer-events-none absolute inset-[-1px] rounded-full"
-              style={{ background: "conic-gradient(from 225deg, transparent 0deg, rgba(255,255,255,0.82) 38deg, transparent 72deg, rgba(96,126,151,0.28) 150deg, transparent 218deg, rgba(218,245,255,0.7) 292deg, transparent 360deg)" }}
-            />
-            <div
-              className="pointer-events-none absolute inset-[4px] rounded-full border border-white/65"
-              style={{ boxShadow: "inset 0 1px 3px rgba(255,255,255,0.96), inset 0 -2px 4px rgba(58,83,108,0.24)" }}
-            />
-            <motion.div
-              className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
-              style={{ background: "linear-gradient(118deg, transparent 34%, rgba(255,255,255,0.75) 48%, rgba(205,238,255,0.48) 52%, transparent 66%)" }}
-              initial={{ x: "-125%", opacity: 0 }}
-              animate={{ x: ["-125%", "125%"], opacity: [0, 0.72, 0] }}
-              transition={{ duration: 2.35, repeat: Infinity, ease: "easeInOut", delay: 0.55 }}
-            />
-          </>
-        )}
-
-        {highlight && <motion.div initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1 }} className="absolute inset-0 rounded-full bg-white/35 blur-sm" />}
-
+        <BadgeMedalFinish tierName={status.currentTier} highlight={highlight} />
       </motion.div>
 
       <div className="relative z-[1] flex h-full flex-col">
@@ -3034,7 +2964,7 @@ function BadgeDetailScreen({ badge, close }) {
   const tier = badgeTierStyles[status.currentTier] || badgeTierStyles.Starter;
   const progressText = badge.isPercent ? `${status.displayProgress}% / ${status.nextThreshold}%` : `${status.displayProgress} / ${status.nextThreshold}`;
   const targetText = status.isMaxTier ? "Highest tier unlocked" : `Next: ${status.nextTier}`;
-  return <div className="min-h-[690px] px-5 pb-5"><Header title="Badge" right={<BackButton onClick={close} />} /><div className="overflow-hidden rounded-[2rem] bg-white p-5 text-center shadow-[0_14px_36px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]"><div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#f7f3eb] text-neutral-950 shadow-inner"><BadgeGlyph id={badge.id} size={50} /><div className="absolute -right-3 -top-3 h-12 w-12 overflow-hidden rounded-full ring-2 ring-white" style={{ background: tier.medal, ...(tier.shadow ? { boxShadow: tier.shadow } : {}) }}><BadgeMedalFinish tierName={status.currentTier} /></div></div><h2 className="mt-5 text-[30px] font-semibold leading-none tracking-[-0.05em] text-neutral-950">{badge.name}</h2><div className={`mt-2 text-sm font-semibold ${tier.text}`}>{status.currentTier}</div><p className="mx-auto mt-4 max-w-[310px] text-sm leading-6 text-neutral-500">{badge.description}</p><div className="mt-5 rounded-3xl bg-[#f7f3eb] p-4 text-left"><div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-neutral-600"><span>{targetText}</span><span className="shrink-0 tabular-nums">{progressText}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-white shadow-inner"><motion.div className="h-full origin-left rounded-full bg-neutral-950" initial={{ scaleX: 0 }} animate={{ scaleX: status.percent / 100 }} transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }} /></div></div></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">How to unlock</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{getBadgeUnlockNote(badge)}</p></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Tiers</h3><div className="mt-3 space-y-2">{badge.tiers.map((tierItem) => { const reached = badge.progress >= tierItem.threshold; return <div key={tierItem.name} className={`flex items-center justify-between rounded-2xl px-3 py-2 text-sm ${reached ? "bg-[#f7f3eb] text-neutral-950" : "bg-white text-neutral-400 ring-1 ring-black/[0.04]"}`}><span className="font-semibold">{tierItem.name}</span><span className="tabular-nums">{badge.isPercent ? `${tierItem.threshold}%` : tierItem.threshold}</span></div>; })}</div></div></div>;
+  return <div className="min-h-[690px] px-5 pb-5"><Header title="Badge" right={<BackButton onClick={close} />} /><div className="overflow-hidden rounded-[2rem] bg-white p-5 text-center shadow-[0_14px_36px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]"><div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#f7f3eb] text-neutral-950 shadow-inner"><BadgeGlyph id={badge.id} size={50} /><div className="absolute -right-3 -top-3 h-12 w-12 overflow-hidden rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.10)] ring-2 ring-white" style={{ background: tier.medal, border: `1.5px solid ${tier.border}` }}><BadgeMedalFinish tierName={status.currentTier} /></div></div><h2 className="mt-5 text-[30px] font-semibold leading-none tracking-[-0.05em] text-neutral-950">{badge.name}</h2><div className={`mt-2 text-sm font-semibold ${tier.text}`}>{status.currentTier}</div><p className="mx-auto mt-4 max-w-[310px] text-sm leading-6 text-neutral-500">{badge.description}</p><div className="mt-5 rounded-3xl bg-[#f7f3eb] p-4 text-left"><div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-neutral-600"><span>{targetText}</span><span className="shrink-0 tabular-nums">{progressText}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-white shadow-inner"><motion.div className="h-full origin-left rounded-full bg-neutral-950" initial={{ scaleX: 0 }} animate={{ scaleX: status.percent / 100 }} transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }} /></div></div></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">How to unlock</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{getBadgeUnlockNote(badge)}</p></div><div className="mt-5 rounded-3xl bg-white p-5 shadow-sm"><h3 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Tiers</h3><div className="mt-3 space-y-2">{badge.tiers.map((tierItem) => { const reached = badge.progress >= tierItem.threshold; return <div key={tierItem.name} className={`flex items-center justify-between rounded-2xl px-3 py-2 text-sm ${reached ? "bg-[#f7f3eb] text-neutral-950" : "bg-white text-neutral-400 ring-1 ring-black/[0.04]"}`}><span className="font-semibold">{tierItem.name}</span><span className="tabular-nums">{badge.isPercent ? `${tierItem.threshold}%` : tierItem.threshold}</span></div>; })}</div></div></div>;
 }
 
 function BadgesScreen({ badges, highlightBadge, close, openBadge }) {
@@ -3491,7 +3421,7 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
             <ScoreRing score={product.score} onClick={product.scorePending ? undefined : openScoreDetails} featured={isNearIdealScore} pending={product.scorePending} />
           </div>
 
-          <div className="mt-2 flex flex-col items-center gap-1">
+          <div className="mt-4 flex flex-col items-center gap-2">
             {isEstimatedScore && !product.scorePending && <div className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-400">Estimated score</div>}
             {product.scorePending ? (
               <div className="rounded-full bg-neutral-100 px-4 py-2 text-xs font-semibold text-neutral-500 shadow-inner">Score pending review</div>
@@ -3509,7 +3439,7 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
             )}
 
             {!product.scorePending && (
-              <div className="flex flex-wrap justify-center gap-1.5">
+              <div className="mt-1 flex flex-wrap justify-center gap-1.5">
                 <motion.div
                   initial={{ opacity: 0, y: 4, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3523,7 +3453,7 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
             )}
           </div>
 
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950">{displayName}</h2>
+          <h2 className="mt-6 text-2xl font-semibold tracking-tight text-neutral-950">{displayName}</h2>
           <p className="text-neutral-500">{displayBrand}</p>
           <p className="mt-2 text-xs text-neutral-500">
             {product.category?.name} • {dataQualityLabel(product.confidence)}
@@ -3605,7 +3535,7 @@ function ResultScreen({ product, products = [], close, openResult, openDetail, o
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
             <h3 className="font-semibold text-neutral-950">Recyclability</h3>
-            <p className="mt-1 text-sm text-neutral-500">Use your location to match the nearest supported city.</p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">Use your location to match the nearest supported city.</p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <span className="text-xs font-medium text-neutral-500">Use location</span>
