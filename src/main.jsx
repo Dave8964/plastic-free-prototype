@@ -52,7 +52,7 @@ class ErrorBoundary extends Component {
 if (rootNode) {
   rootNode.innerHTML = `
     <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f1e9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;">
-      <div style="font-weight:700;letter-spacing:-.03em;">Loading PlasticFree...</div>
+      <div style="font-weight:700;">Loading Messages Image Cleaner...</div>
     </main>
   `;
 }

@@ -1,16 +1,41 @@
-# React + Vite
+# Messages Image Cleaner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A small Electron + React Mac app for browsing files inside local Messages and User Notifications cache folders, then moving selected files to Trash.
 
-Currently, two official plugins are available:
+## Run As A Mac Window
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```sh
+npm run mac
+```
 
-## React Compiler
+That opens the visual app window with file previews, file locations, largest-first sorting, type filters, selection, Finder reveal, and Trash actions.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+For development with live reload:
 
-## Expanding the ESLint configuration
+```sh
+npm run mac:dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+To create a clickable Mac app bundle:
+
+```sh
+npm run package:mac
+```
+
+The packaged app will be created under `release/`. Open `Messages Image Cleaner.app` from there.
+
+## macOS Permissions
+
+Messages and notification cache folders are protected by macOS privacy controls. If the app finds nothing or reports permission errors, grant Full Disk Access to the app you are running it from:
+
+System Settings -> Privacy & Security -> Full Disk Access
+
+For the packaged app, add `Messages Image Cleaner.app`. During development, that usually means granting access to Terminal, iTerm, or the Codex app.
+
+## Scanned Folders
+
+- `~/Library/Messages/Attachments`
+- `~/Library/Messages/Caches`
+- `~/Library/Group Containers/group.com.apple.UserNotifications/Library/UserNotifications/Remote/default`
+
+Deletion uses macOS Trash through Electron, so files are not permanently removed immediately.
