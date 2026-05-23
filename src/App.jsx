@@ -8,6 +8,7 @@ const APP_USER_ID = "user_me";
 const LOCAL_SUBMISSIONS_KEY = "plasticfree.submissions.v1";
 const LOCAL_SCANS_KEY = "plasticfree.scans.v1";
 const LOCAL_FAVORITES_KEY = "plasticfree.favorites.v1";
+const LOCAL_BUG_REPORTS_KEY = "plasticfree.bugReports.v1";
 const RETAIL_BARCODE_FORMATS = [
   BarcodeFormat.UPC_A,
   BarcodeFormat.UPC_E,
@@ -2659,9 +2660,127 @@ function RequirementRow({ met, children }) {
   return <div className={`flex items-center gap-2 text-xs ${met ? "text-emerald-700" : "text-neutral-500"}`}><span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${met ? "bg-emerald-100" : "bg-neutral-100"}`}>{met ? "✓" : "•"}</span><span>{children}</span></div>;
 }
 
+function BugReportSheet({ close, profile }) {
+  const [area, setArea] = useState("Scanning");
+  const [description, setDescription] = useState("");
+  const [steps, setSteps] = useState("");
+  const [contact, setContact] = useState(profile?.email || "");
+  const [showError, setShowError] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const dragControls = useDragControls();
+
+  const submitBug = () => {
+    if (!description.trim()) {
+      setShowError(true);
+      return;
+    }
+    const report = {
+      id: `bug_${Date.now()}`,
+      area,
+      description: description.trim(),
+      steps: steps.trim(),
+      contact: contact.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const existing = JSON.parse(localStorage.getItem(LOCAL_BUG_REPORTS_KEY) || "[]");
+      localStorage.setItem(LOCAL_BUG_REPORTS_KEY, JSON.stringify([report, ...existing].slice(0, 50)));
+    } catch {
+      localStorage.setItem(LOCAL_BUG_REPORTS_KEY, JSON.stringify([report]));
+    }
+    triggerHapticFeedback();
+    setSubmitted(true);
+  };
+
+  return (
+    <motion.div
+      className="fixed left-1/2 top-0 z-[90] flex h-[100dvh] w-full max-w-[430px] -translate-x-1/2 items-end overflow-hidden bg-neutral-950/32 backdrop-blur-md md:top-1/2 md:h-[min(760px,calc(100dvh-4rem))] md:-translate-y-1/2 md:rounded-[2.35rem]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 0.8, 0.2, 1] }}
+      onClick={close}
+    >
+      <motion.div
+        initial={{ y: "105%", opacity: 0.98 }}
+        animate={{ y: 0 }}
+        exit={{ y: "105%", opacity: 0.98, transition: { duration: 0.38, ease: [0.32, 0.72, 0, 1] } }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.18 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 110 || info.velocity.y > 820) close();
+        }}
+        transition={{ type: "spring", stiffness: 240, damping: 34, mass: 1.05 }}
+        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] bg-white p-5 text-neutral-950 shadow-[0_-28px_70px_rgba(0,0,0,0.28)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" onPointerDown={(event) => dragControls.start(event)} className="mx-auto mb-4 block h-7 w-16 touch-none rounded-full" aria-label="Swipe down to close">
+          <span className="mx-auto mt-2 block h-1.5 w-12 rounded-full bg-neutral-200" />
+        </button>
+
+        {submitted ? (
+          <div className="py-8 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-3xl font-semibold text-emerald-700">✓</div>
+            <h3 className="mt-5 text-2xl font-semibold tracking-tight text-neutral-950">Bug report sent</h3>
+            <p className="mx-auto mt-2 max-w-[300px] text-sm leading-6 text-neutral-500">Thanks. I saved this report so it can be reviewed while testing the app.</p>
+            <Button onClick={close} className="mt-6 w-full">Done</Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight text-neutral-950">Submit bug</h3>
+                <p className="mt-1 text-sm leading-5 text-neutral-500">Send a quick note about anything broken, confusing, or glitchy.</p>
+              </div>
+              <BackButton onClick={close} variant="outline" />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-neutral-700">Where did it happen?</span>
+                <select value={area} onChange={(event) => setArea(event.target.value)} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950">
+                  <option>Scanning</option>
+                  <option>Search</option>
+                  <option>Product page</option>
+                  <option>Profile</option>
+                  <option>Social</option>
+                  <option>Settings</option>
+                  <option>Other</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-neutral-700">What went wrong? <span className="text-red-500">*</span></span>
+                <textarea value={description} onChange={(event) => { setDescription(event.target.value); setShowError(false); }} placeholder="e.g. The scan result sheet got stuck halfway open." className="min-h-[118px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-neutral-700">Steps to reproduce (Optional)</span>
+                <textarea value={steps} onChange={(event) => setSteps(event.target.value)} placeholder="What did you tap right before it happened?" className="min-h-[92px] w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-neutral-700">Contact email (Optional)</span>
+                <input type="email" value={contact} onChange={(event) => setContact(event.target.value)} className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base outline-none focus:border-neutral-950" />
+              </label>
+
+              {showError && <p className="text-xs font-medium leading-5 text-red-500">Please describe what went wrong before submitting.</p>}
+              <Button onClick={submitBug} className="w-full">Submit bug</Button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProfile, localeCopy }) {
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [shareActivity, setShareActivity] = useState(true);
+  const [showBugReport, setShowBugReport] = useState(false);
   const initialFullName = `${profile.firstName} ${profile.lastName}`.trim();
   const [fullName, setFullName] = useState(initialFullName);
   const [email, setEmail] = useState(profile.email);
@@ -2762,9 +2881,22 @@ function SettingsScreen({ close, onSignOut, onDeleteAccount, profile, updateProf
           </div>
         </SettingsSection>
 
+        <div className="rounded-3xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium text-neutral-950">Found a bug?</div>
+              <p className="mt-1 text-sm leading-5 text-neutral-500">Send a quick report so it can be fixed.</p>
+            </div>
+            <Button onClick={() => setShowBugReport(true)} variant="outline" className="shrink-0 bg-white">Submit bug</Button>
+          </div>
+        </div>
+
         <Button onClick={onSignOut} variant="outline" className="w-full bg-white">Sign out</Button>
         <Button onClick={onDeleteAccount} variant="ghost" className="w-full text-red-700 hover:bg-red-50">Delete account</Button>
       </div>
+      <AnimatePresence>
+        {showBugReport && <BugReportSheet close={() => setShowBugReport(false)} profile={profile} />}
+      </AnimatePresence>
     </div>
   );
 }
